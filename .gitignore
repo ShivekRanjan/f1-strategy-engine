@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# FastF1 cache (large, regenerable — never commit)
+data/cache/
+*.ff1pkl
+
+# Data artifacts
+data/raw/
+data/processed/
+*.parquet
+!tests/fixtures/*.parquet
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Models
+*.pkl
+*.pt
+*.joblib
+models_out/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

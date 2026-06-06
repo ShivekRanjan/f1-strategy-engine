@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"F:/F1 project\" rev-parse --is-inside-work-tree)",
+      "Bash(python -c \"import fastf1; print\\('fastf1', fastf1.__version__\\)\")",
+      "Bash(python -c \"import pandas; print\\('pandas', pandas.__version__\\)\")",
+      "Bash(git --version)",
+      "Bash(py -0p)",
+      "Bash(where python *)",
+      "Bash(py --list)",
+      "Bash(git init *)",
+      "Bash(py -3.12 -m venv .venv)",
+      "Bash(.venv/Scripts/python.exe -m pip install --upgrade pip -q)",
+      "Bash(.venv/Scripts/python.exe -m pip install -q \"fastf1>=3.4\" \"pandas>=2.2\" \"pyarrow>=16\" \"numpy>=1.26\" pytest)",
+      "Bash(.venv/Scripts/python.exe -m pip install -e . -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest -q)",
+      "Bash(.venv/Scripts/python.exe -m pip install -q \"matplotlib>=3.9\")",
+      "Bash(.venv/Scripts/python.exe -c \"import ast; ast.parse\\(open\\('notebooks/phase1_degradation_eda.py'\\).read\\(\\)\\); print\\('EDA script parses OK'\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"from f1se.data import loader, clean; from f1se import config; print\\('package imports OK'\\)\")",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m ' *)"
+    ]
+  }
+}
