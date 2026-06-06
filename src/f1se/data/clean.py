@@ -122,17 +122,16 @@ def drop_stint_outliers(
     if df.empty:
         return df.copy()
 
-    def _mask(group: pd.DataFrame) -> pd.Series:
-        t = group["lap_time_s"]
-        med = t.median()
-        mad = (t - med).abs().median()
-        if mad == 0 or np.isnan(mad):
-            return pd.Series(True, index=group.index)
-        # 1.4826 scales MAD to a std-equivalent for ~normal data.
-        threshold = med + n_mad * 1.4826 * mad
-        return t <= threshold
-
-    keep = df.groupby(list(group_cols), group_keys=False).apply(_mask)
+    # Vectorised via transform (no groupby.apply) — avoids operating on the
+    # grouping columns and keeps the mask index-aligned to df.
+    g = df.groupby(list(group_cols))["lap_time_s"]
+    med = g.transform("median")
+    mad = g.transform(lambda s: (s - s.median()).abs().median())
+    # 1.4826 scales MAD to a std-equivalent for ~normal data.
+    threshold = med + n_mad * 1.4826 * mad
+    # Keep when within threshold, or when MAD is degenerate (0 / NaN: too few
+    # distinct laps to judge an outlier — don't drop).
+    keep = (df["lap_time_s"] <= threshold) | (mad == 0) | mad.isna()
     return df.loc[keep].reset_index(drop=True)
 
 

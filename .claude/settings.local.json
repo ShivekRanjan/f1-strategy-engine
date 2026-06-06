@@ -19,7 +19,8 @@
       "Bash(.venv/Scripts/python.exe -c \"from f1se.data import loader, clean; from f1se import config; print\\('package imports OK'\\)\")",
       "Bash(git config *)",
       "Bash(git add *)",
-      "Bash(git commit -q -m ' *)"
+      "Bash(git commit -q -m ' *)",
+      "Bash(.venv/Scripts/python.exe notebooks/phase1_degradation_eda.py --year 2023 --gp Spain)"
     ]
   }
 }
