@@ -51,11 +51,14 @@ class RaceSpec:
 def load_clean_races(
     specs: list[RaceSpec],
     fuel: FuelModel | None = None,
+    *,
+    dry_only: bool = False,
 ) -> pd.DataFrame:
     """Pull and clean several races; return one frame with a ``race`` label column.
 
     Network on a cache miss; cached thereafter. Races that fail to load are
     skipped with a printed warning rather than aborting the whole batch.
+    Pass ``dry_only=True`` for the dry degradation model (drops wet/inter laps).
     """
     frames: list[pd.DataFrame] = []
     for spec in specs:
@@ -64,7 +67,7 @@ def load_clean_races(
         except Exception as e:  # pragma: no cover - network/availability
             print(f"  ! skipped {spec.label}: {e}")
             continue
-        clean = clean_laps(raw, fuel)
+        clean = clean_laps(raw, fuel, dry_only=dry_only)
         clean["race"] = spec.label
         frames.append(clean)
         print(f"  loaded {spec.label}: {len(raw)} raw -> {len(clean)} clean laps")

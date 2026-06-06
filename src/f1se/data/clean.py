@@ -29,6 +29,11 @@ import pandas as pd
 # exactly "1"; anything else means a yellow/SC/VSC/red condition touched the lap.
 GREEN_FLAG = "1"
 
+# Slick (dry) compounds. The Phase 1 EDA showed INTERMEDIATE/WET stints produce
+# strongly *negative* fuel-corrected slopes — that's a drying track, not tyre
+# degradation. The dry strategy model trains on slicks only.
+DRY_COMPOUNDS = ("SOFT", "MEDIUM", "HARD")
+
 
 @dataclass(frozen=True)
 class FuelModel:
@@ -68,6 +73,7 @@ def filter_racing_laps(
     require_green: bool = True,
     require_accurate: bool = True,
     drop_pit_laps: bool = True,
+    dry_only: bool = False,
 ) -> pd.DataFrame:
     """Keep only laps that represent a car running freely on a clean track.
 
@@ -84,6 +90,9 @@ def filter_racing_laps(
     drop_pit_laps
         Drop in-laps and out-laps (their times include pit travel/stop and are
         meaningless for degradation).
+    dry_only
+        Keep only slick compounds (:data:`DRY_COMPOUNDS`). Off by default so EDA
+        can still see wet/inter; the dry degradation model turns it on.
 
     Returns
     -------
@@ -102,6 +111,9 @@ def filter_racing_laps(
 
     if require_accurate and "is_accurate" in df.columns:
         mask &= df["is_accurate"].fillna(False)
+
+    if dry_only:
+        mask &= df["compound"].isin(DRY_COMPOUNDS)
 
     return df.loc[mask].reset_index(drop=True)
 
@@ -182,12 +194,14 @@ def clean_laps(
     *,
     drop_outliers: bool = True,
     total_laps: int | None = None,
+    dry_only: bool = False,
 ) -> pd.DataFrame:
     """Full cleaning pipeline: filter → (outliers) → fuel-correct.
 
     This is the single entry point Phase 1 EDA and Phase 2 modelling should call.
+    Pass ``dry_only=True`` for the dry degradation model (drops wet/inter laps).
     """
-    out = filter_racing_laps(df)
+    out = filter_racing_laps(df, dry_only=dry_only)
     if drop_outliers:
         out = drop_stint_outliers(out)
     out = add_fuel_correction(out, fuel, total_laps=total_laps)

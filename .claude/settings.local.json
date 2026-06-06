@@ -21,7 +21,11 @@
       "Bash(git add *)",
       "Bash(git commit -q -m ' *)",
       "Bash(.venv/Scripts/python.exe notebooks/phase1_degradation_eda.py --year 2023 --gp Spain)",
-      "Bash(.venv/Scripts/python.exe notebooks/phase1_eda.py)"
+      "Bash(.venv/Scripts/python.exe notebooks/phase1_eda.py)",
+      "PowerShell($cpu = Get-CimInstance Win32_Processor; $cs = Get-CimInstance Win32_ComputerSystem; $gpu = Get-CimInstance Win32_VideoController; $os = Get-CimInstance Win32_OperatingSystem; \"CPU: $\\($cpu.Name.Trim\\(\\)\\)\"; \"Cores/Threads: $\\($cpu.NumberOfCores\\)C / $\\($cpu.NumberOfLogicalProcessors\\)T\"; \"RAM: {0:N1} GB\" -f \\($cs.TotalPhysicalMemory/1GB\\); \"Free RAM: {0:N1} GB\" -f \\($os.FreePhysicalMemory/1MB\\); foreach \\($g in $gpu\\) { \"GPU: $\\($g.Name\\)  \\(VRAM {0:N1} GB\\)\" -f \\($g.AdapterRAM/1GB\\) })",
+      "PowerShell(Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -ne $null } | Select-Object Name, @{N='Used GB';E={[math]::Round\\($_.Used/1GB,1\\)}}, @{N='Free GB';E={[math]::Round\\($_.Free/1GB,1\\)}} | Format-Table -AutoSize; \"---cache size---\"; if \\(Test-Path 'F:\\\\F1 project\\\\data\\\\cache'\\) { \"{0:N1} MB\" -f \\(\\(Get-ChildItem 'F:\\\\F1 project\\\\data\\\\cache' -Recurse -File | Measure-Object Length -Sum\\).Sum/1MB\\) })",
+      "Bash(.venv/Scripts/python.exe -m pip install -q \"scikit-learn>=1.5\")",
+      "Bash(.venv/Scripts/python.exe notebooks/phase2_degradation.py)"
     ]
   }
 }

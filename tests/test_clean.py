@@ -76,3 +76,21 @@ def test_clean_pipeline_adds_corrected_column(fake_session):
     out = clean_laps(df, drop_outliers=False, total_laps=50)
     assert "lap_time_fuel_corr_s" in out.columns
     assert len(out) == 2  # same survivors as the filter test
+
+
+def test_dry_only_drops_wet_and_intermediate():
+    # Minimal frame: one slick lap, one inter lap, both otherwise clean/green.
+    df = pd.DataFrame(
+        {
+            "compound": ["MEDIUM", "INTERMEDIATE"],
+            "lap_time_s": [90.0, 100.0],
+            "is_pit_out_lap": [False, False],
+            "is_pit_in_lap": [False, False],
+            "track_status": ["1", "1"],
+            "is_accurate": [True, True],
+        }
+    )
+    kept = filter_racing_laps(df, dry_only=True)
+    assert kept["compound"].tolist() == ["MEDIUM"]
+    # Default (dry_only=False) keeps both.
+    assert len(filter_racing_laps(df, dry_only=False)) == 2
