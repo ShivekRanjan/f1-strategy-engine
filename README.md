@@ -52,7 +52,7 @@ is tyre degradation.
 - [ ] **Phase 1** — cleaning validation + fuel correction + EDA ← *current*
 - [x] **Phase 2** — tyre degradation model *(minimum shippable)* — within-stint linear baseline (beats naive 23% on held-out races); XGBoost evaluated head-to-head but did **not** beat it (degradation is ~linear in-range), so the simpler model ships
 - [ ] **Phase 2.5** — sequence lap-time model (LSTM/ConvLSTM)
-- [ ] **Phase 3** — Monte Carlo simulator + safety-car hazard model
+- [x] **Phase 3** — Monte Carlo simulator + safety-car hazard model — vectorised race-time simulation with stochastic SC; common-random-numbers paired strategy comparison (distributions, not points)
 - [ ] **Phase 4** — strategy optimiser
 - [ ] **Phase 5** — FastAPI service + Streamlit UI
 - [ ] **Phase 6** — Docker + live deploy + hero-image README
