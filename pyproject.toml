@@ -6,7 +6,6 @@ build-backend = "setuptools.build_meta"
 name = "f1se"
 version = "0.1.0"
 description = "F1 pit-strategy recommendation engine — recommends when to pit and which compounds to fit, with quantified uncertainty."
-readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
 authors = [{ name = "Shive" }]

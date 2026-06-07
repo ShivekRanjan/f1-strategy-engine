@@ -53,3 +53,6 @@ Thumbs.db
 
 # Local Claude Code settings (machine-specific)
 .claude/settings.local.json
+
+# README temporarily removed from the repo (kept locally)
+/README.md
