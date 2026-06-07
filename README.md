@@ -50,7 +50,7 @@ is tyre degradation.
 
 - [x] **Phase 0** — scaffold, FastF1 caching, tidy loader, cleaning + tests
 - [ ] **Phase 1** — cleaning validation + fuel correction + EDA ← *current*
-- [~] **Phase 2** — tyre degradation model *(minimum shippable)* — within-stint linear baseline shipped (beats naive 23% on held-out races); boosted model next
+- [x] **Phase 2** — tyre degradation model *(minimum shippable)* — within-stint linear baseline (beats naive 23% on held-out races); XGBoost evaluated head-to-head but did **not** beat it (degradation is ~linear in-range), so the simpler model ships
 - [ ] **Phase 2.5** — sequence lap-time model (LSTM/ConvLSTM)
 - [ ] **Phase 3** — Monte Carlo simulator + safety-car hazard model
 - [ ] **Phase 4** — strategy optimiser

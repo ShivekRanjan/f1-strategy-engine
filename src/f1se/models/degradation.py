@@ -176,18 +176,39 @@ def predict_corrected_laptime(
 
 # --- evaluation: on within-stint pace loss, the track-level-free target --------
 
-def pace_loss_mae(model: DegradationModel, laps: pd.DataFrame) -> float:
-    """MAE of predicted vs actual within-stint pace deviation.
+def _demean_within_stint(values: np.ndarray, laps: pd.DataFrame) -> np.ndarray:
+    """Subtract the per-stint mean from ``values`` (aligned to ``laps`` rows)."""
+    tmp = laps[list(STINT_KEYS)].copy()
+    tmp["_v"] = np.asarray(values, dtype=float)
+    mean = tmp.groupby(list(STINT_KEYS), observed=True)["_v"].transform("mean")
+    return tmp["_v"].to_numpy() - mean.to_numpy()
 
-    Demeans each stint, so the metric measures how well the model captures the
-    *degradation shape*, independent of the stint's (track/car/fuel) base level.
-    """
-    age_dm, corr_dm = _stint_demeaned(laps)
-    slopes = np.array(
-        [model.slope(c, t) for c, t in zip(laps["compound"], laps["event_name"])]
+
+def linear_shape(model: DegradationModel, laps: pd.DataFrame) -> np.ndarray:
+    """Per-row degradation shape g(age) = slope·age for the linear baseline."""
+    return np.array(
+        [
+            model.slope(c, t) * a
+            for c, a, t in zip(laps["compound"], laps[AGE_COL], laps["event_name"])
+        ]
     )
-    pred_dm = slopes * age_dm
+
+
+def shape_mae(shape: np.ndarray, laps: pd.DataFrame) -> float:
+    """MAE of any model's degradation *shape* against within-stint pace deviation.
+
+    Both the prediction and the truth are demeaned per stint, so every model is
+    granted the same free per-stint intercept (the base pace the simulator
+    supplies). This is the apples-to-apples metric for linear vs boosted.
+    """
+    _, corr_dm = _stint_demeaned(laps)
+    pred_dm = _demean_within_stint(shape, laps)
     return float(np.mean(np.abs(pred_dm - corr_dm)))
+
+
+def pace_loss_mae(model: DegradationModel, laps: pd.DataFrame) -> float:
+    """MAE of the linear baseline's within-stint pace-loss prediction."""
+    return shape_mae(linear_shape(model, laps), laps)
 
 
 def naive_pace_loss_mae(laps: pd.DataFrame) -> float:
