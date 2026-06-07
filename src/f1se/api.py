@@ -44,6 +44,17 @@ class SimulateRequest(BaseModel):
     n_runs: int = Field(4000, ge=200, le=20000)
 
 
+class LiveRequest(BaseModel):
+    track: str
+    current_lap: int = Field(..., ge=0)
+    current_compound: str
+    tyre_age: int = Field(..., ge=0)
+    compounds_used: list[str] = []
+    objective: str = "mean"
+    use_cliff: bool = True
+    n_runs: int = Field(2000, ge=200, le=20000)
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -68,6 +79,20 @@ def recommend(req: RecommendRequest, engine: StrategyEngine = Depends(get_engine
         return engine.recommend(
             req.track, objective=req.objective, use_cliff=req.use_cliff,
             max_stops=req.max_stops, n_runs=req.n_runs, top_k=req.top_k,
+        )
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/recommend_live")
+def recommend_live(req: LiveRequest, engine: StrategyEngine = Depends(get_engine)) -> dict:
+    try:
+        return engine.recommend_live(
+            req.track, req.current_lap, req.current_compound, req.tyre_age,
+            compounds_used=tuple(req.compounds_used), objective=req.objective,
+            use_cliff=req.use_cliff, n_runs=req.n_runs,
         )
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))

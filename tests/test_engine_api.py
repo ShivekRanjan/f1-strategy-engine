@@ -54,6 +54,16 @@ def test_engine_simulate_returns_summary_and_histogram():
     assert len(sim["hist_edges"]) == 31
 
 
+def test_engine_recommend_live_from_current_state():
+    eng = _synthetic_engine()
+    out = eng.recommend_live("Test GP", current_lap=15, current_compound="SOFT",
+                             tyre_age=15, compounds_used=("MEDIUM", "SOFT"), n_runs=300)
+    assert out["laps_remaining"] == 40 - 15
+    assert out["n_evaluated"] > 0
+    assert out["shortlist"][0]["rank"] == 1
+    assert "best_plan" in out
+
+
 def test_engine_unknown_track_raises():
     with pytest.raises(KeyError):
         _synthetic_engine().recommend("Nowhere GP")
@@ -80,5 +90,10 @@ def test_api_endpoints_with_synthetic_engine():
         s = client.post("/simulate", json={"track": "Test GP", "compounds": ["MEDIUM", "HARD"],
                                            "pit_laps": [20], "n_runs": 300})
         assert s.status_code == 200 and s.json()["mean_s"] > 0
+
+        live = client.post("/recommend_live", json={
+            "track": "Test GP", "current_lap": 15, "current_compound": "SOFT",
+            "tyre_age": 15, "compounds_used": ["MEDIUM", "SOFT"], "n_runs": 300})
+        assert live.status_code == 200 and live.json()["laps_remaining"] == 25
     finally:
         api.app.dependency_overrides.clear()

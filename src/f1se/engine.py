@@ -160,6 +160,47 @@ class StrategyEngine:
             "shortlist": res.shortlist,
         }
 
+    def recommend_live(
+        self,
+        track: str,
+        current_lap: int,
+        current_compound: str,
+        tyre_age: int,
+        *,
+        compounds_used: tuple[str, ...] = (),
+        objective: str = "mean",
+        use_cliff: bool = True,
+        n_runs: int = 2000,
+        top_k: int = 5,
+        seed: int = 0,
+    ) -> dict:
+        """In-race: recommend the best strategy for the REMAINING laps from now."""
+        from f1se.sim.inrace import RaceState, recommend_remaining
+
+        total_laps = self._total_laps(track)
+        pace_fn = self._pace_fn(track, total_laps, use_cliff)
+        pit_loss = self._pit_loss(track)
+        used = tuple(compounds_used) or (current_compound,)
+        state = RaceState(total_laps, current_lap, current_compound, tyre_age, used)
+        rec = recommend_remaining(
+            state, pace_fn, sc_model=self._sc_model(track), objective=objective,
+            n_runs=n_runs, top_k=top_k, seed=seed, max_stint=self.stint_limits,
+            pit_loss_s=pit_loss, pit_loss_sc_s=round(pit_loss * 0.5, 1),
+        )
+        return {
+            "track": track,
+            "total_laps": total_laps,
+            "current_lap": current_lap,
+            "laps_remaining": state.laps_remaining,
+            "current_compound": current_compound,
+            "tyre_age": tyre_age,
+            "best_plan": rec.shortlist[0]["plan"],
+            "best_future_pits": list(rec.best.future_pits),
+            "best_future_compounds": list(rec.best.future_compounds),
+            "n_evaluated": rec.n_evaluated,
+            "shortlist": rec.shortlist,
+        }
+
     def simulate(
         self,
         track: str,
