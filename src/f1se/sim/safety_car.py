@@ -96,6 +96,16 @@ def calibrate_per_track(
     return out
 
 
+def track_sc_model(status: pd.DataFrame, event_name: str) -> SafetyCarModel:
+    """Calibrated SC model for one circuit, falling back to the global rate.
+
+    Convenience for the simulator/optimiser: returns the (shrunk) per-track model
+    if the circuit is present in ``status``, else the global calibration.
+    """
+    per_track = calibrate_per_track(status)
+    return per_track.get(event_name) or SafetyCarModel.from_track_status(status)
+
+
 def sc_laps_in_race(race_status: pd.DataFrame) -> list[int]:
     """Race laps run under safety car: those where most cars show the SC code."""
     by_lap = race_status.groupby("lap_number")["track_status"].apply(

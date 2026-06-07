@@ -18,11 +18,14 @@ import numpy as np
 import pandas as pd
 
 from f1se.config import PROJECT_ROOT
+from f1se.eda import estimate_pit_loss
 from f1se.models.degradation import fit_linear_baseline
-from f1se.sim.safety_car import SafetyCarModel
+from f1se.sim.safety_car import SafetyCarModel, track_sc_model
 from f1se.sim.simulate import Strategy, pace_fn_from_model, simulate_race
 
 DATA = PROJECT_ROOT / "data" / "processed" / "dry_laps.parquet"
+STATUS = PROJECT_ROOT / "data" / "processed" / "track_status.parquet"
+RACELAPS = PROJECT_ROOT / "data" / "processed" / "race_laps.parquet"
 FIG_DIR = Path(__file__).parent / "figures"
 TRACK = "Spanish Grand Prix"
 
@@ -38,7 +41,17 @@ def main() -> None:
     print(f"{TRACK}: {total_laps} laps. Simulating strategies...\n")
 
     pace_fn = pace_fn_from_model(model, TRACK, total_laps)
-    sc_model = SafetyCarModel.from_rate(sc_periods_per_race=0.7, total_laps=total_laps)
+    # Per-track calibrated safety-car risk (Spain is a low-SC circuit).
+    if STATUS.exists():
+        sc_model = track_sc_model(pd.read_parquet(STATUS), TRACK)
+    else:
+        sc_model = SafetyCarModel.from_rate(sc_periods_per_race=0.7, total_laps=total_laps)
+    pit_loss = 21.0
+    if RACELAPS.exists():
+        est = estimate_pit_loss(pd.read_parquet(RACELAPS))
+        pit_loss = est.get(TRACK, est.get("_global", 21.0))
+    print(f"SC model: prob_per_lap={sc_model.prob_per_lap:.4f}, dur={sc_model.mean_duration}; "
+          f"pit loss={pit_loss:.1f}s\n")
 
     h = total_laps // 2
     t = total_laps // 3
@@ -51,7 +64,8 @@ def main() -> None:
     ]
 
     results = [
-        simulate_race(s, total_laps, pace_fn, sc_model=sc_model, n_runs=8000, seed=42)
+        simulate_race(s, total_laps, pace_fn, sc_model=sc_model, n_runs=8000, seed=42,
+                      pit_loss_s=pit_loss, pit_loss_sc_s=round(pit_loss * 0.5, 1))
         for s in candidates
     ]
     results.sort(key=lambda r: r.mean)

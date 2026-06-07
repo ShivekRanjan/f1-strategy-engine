@@ -33,6 +33,8 @@ from f1se.data.clean import FuelModel, clean_laps
 from f1se.data.loader import load_session_laps
 
 STINT_KEYS = ("year", "round", "driver", "stint")
+GREEN_FLAG = "1"   # FastF1 track-status code for a fully green lap
+SC_CODE = "4"      # ... and for a full safety car
 
 
 @dataclass(frozen=True)
@@ -75,6 +77,52 @@ def load_clean_races(
     if not frames:
         raise RuntimeError("no races loaded")
     return pd.concat(frames, ignore_index=True)
+
+
+def estimate_pit_loss(
+    race_laps: pd.DataFrame, *, min_loss: float = 5.0, max_loss: float = 60.0
+) -> dict[str, float]:
+    """Estimate per-circuit green-flag pit loss (s) from in/out-lap times.
+
+    For each green-flag pit stop, the time lost is approximated as how much
+    slower the in-lap and out-lap are than their immediate green neighbours::
+
+        pit_loss = (in_lap - lap_before) + (out_lap - lap_after)
+
+    Stops under safety car are excluded (they're cheaper and unrepresentative).
+    Returns the median per ``event_name`` plus a ``"_global"`` median fallback.
+    ``race_laps`` needs columns: year, round, event_name, driver, lap_number,
+    lap_time_s, is_pit_in_lap, is_pit_out_lap, track_status.
+    """
+    def _green(row) -> bool:
+        return (str(row["track_status"]) == GREEN_FLAG and not bool(row["is_pit_in_lap"])
+                and not bool(row["is_pit_out_lap"]) and pd.notna(row["lap_time_s"]))
+
+    losses: dict[str, list[float]] = {}
+    for (_, _, _), g in race_laps.groupby(["year", "round", "driver"], observed=True):
+        g = g.set_index("lap_number").sort_index()
+        event = str(g["event_name"].iloc[0])
+        for lap in g.index[g["is_pit_in_lap"].fillna(False)]:
+            need = [lap - 1, lap, lap + 1, lap + 2]
+            if any(n not in g.index for n in need):
+                continue
+            before, in_, out_, after = (g.loc[n] for n in need)
+            if not bool(out_["is_pit_out_lap"]) or not _green(before) or not _green(after):
+                continue
+            # Skip safety-car stops (in/out lap touched by SC).
+            if SC_CODE in str(in_["track_status"]) or SC_CODE in str(out_["track_status"]):
+                continue
+            if any(pd.isna(x["lap_time_s"]) for x in (in_, out_)):
+                continue
+            loss = (in_["lap_time_s"] - before["lap_time_s"]) + (out_["lap_time_s"] - after["lap_time_s"])
+            if min_loss < loss < max_loss:
+                losses.setdefault(event, []).append(float(loss))
+
+    out = {ev: float(np.median(v)) for ev, v in losses.items() if v}
+    allv = [x for v in losses.values() for x in v]
+    if allv:
+        out["_global"] = float(np.median(allv))
+    return out
 
 
 def compound_stint_limits(clean: pd.DataFrame, *, quantile: float = 0.9) -> dict[str, int]:

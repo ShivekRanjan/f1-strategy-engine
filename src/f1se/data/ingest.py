@@ -138,11 +138,69 @@ def build_track_status_dataset(
     return full
 
 
+BY_RACE_PITLAPS = PROCESSED / "by_race_pitlaps"
+
+
+def build_race_laps_dataset(
+    years: list[int],
+    *,
+    session: str = "R",
+    out_name: str = "race_laps.parquet",
+) -> pd.DataFrame:
+    """Pull per-lap times + pit flags + status for every race (for pit-loss calib).
+
+    Laps-only load (fast). Keeps the columns needed to estimate per-track pit
+    loss from in/out-lap times relative to neighbouring green laps. Resumable.
+    """
+    BY_RACE_PITLAPS.mkdir(parents=True, exist_ok=True)
+    enable_cache()
+    import fastf1
+
+    frames: list[pd.DataFrame] = []
+    for year in years:
+        try:
+            rounds = season_rounds(year)
+        except Exception as e:  # pragma: no cover - network
+            print(f"! schedule {year} failed: {e}", flush=True)
+            continue
+        for rnd in rounds:
+            fp = BY_RACE_PITLAPS / f"{year}_{rnd:02d}.parquet"
+            if fp.exists():
+                frames.append(pd.read_parquet(fp))
+                continue
+            try:
+                ses = fastf1.get_session(year, rnd, session)
+                ses.load(laps=True, telemetry=False, weather=False, messages=False)
+                laps = ses.laps
+                df = pd.DataFrame({
+                    "year": int(year),
+                    "round": int(ses.event["RoundNumber"]),
+                    "event_name": str(ses.event["EventName"]),
+                    "driver": laps["Driver"].astype("string"),
+                    "lap_number": laps["LapNumber"].astype("int64"),
+                    "lap_time_s": laps["LapTime"].dt.total_seconds(),
+                    "is_pit_in_lap": laps["PitInTime"].notna(),
+                    "is_pit_out_lap": laps["PitOutTime"].notna(),
+                    "track_status": laps["TrackStatus"].astype("string"),
+                })
+                df.to_parquet(fp)
+                frames.append(df)
+                print(f"  laps {year} r{rnd:02d}: {df['event_name'].iloc[0]}", flush=True)
+            except Exception as e:  # pragma: no cover - network
+                print(f"  ! {year} r{rnd:02d} laps FAILED: {e}", flush=True)
+
+    full = pd.concat(frames, ignore_index=True)
+    full.to_parquet(PROCESSED / out_name)
+    print(f"\nDONE: race laps for {len(frames)} races -> {PROCESSED / out_name}", flush=True)
+    return full
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
-    if args and args[0] == "status":
-        yrs = [int(a) for a in args[1:]] or [2023, 2024]
-        build_track_status_dataset(yrs)
+    cmd = args[0] if args else ""
+    if cmd == "status":
+        build_track_status_dataset([int(a) for a in args[1:]] or [2023, 2024])
+    elif cmd == "racelaps":
+        build_race_laps_dataset([int(a) for a in args[1:]] or [2023, 2024])
     else:
-        yrs = [int(a) for a in args] or [2023, 2024]
-        build_dry_dataset(yrs)
+        build_dry_dataset([int(a) for a in args] or [2023, 2024])

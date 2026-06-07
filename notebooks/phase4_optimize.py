@@ -17,11 +17,11 @@ import numpy as np
 import pandas as pd
 
 from f1se.config import PROJECT_ROOT
-from f1se.eda import compound_stint_limits
+from f1se.eda import compound_stint_limits, estimate_pit_loss
 from f1se.models.cliff import CliffPrior
 from f1se.models.degradation import fit_linear_baseline
 from f1se.sim.optimize import recommend_strategy
-from f1se.sim.safety_car import SafetyCarModel
+from f1se.sim.safety_car import SafetyCarModel, track_sc_model
 from f1se.sim.simulate import Strategy, pace_fn_from_model
 
 DATA = PROJECT_ROOT / "data" / "processed" / "dry_laps.parquet"
@@ -49,13 +49,25 @@ def main() -> None:
 
     ev = laps[laps["event_name"] == TRACK]
     total_laps = int(ev["lap_number"].max())
-    sc_model = SafetyCarModel.from_rate(0.7, total_laps)
+    proc = PROJECT_ROOT / "data" / "processed"
+    status_path, racelaps_path = proc / "track_status.parquet", proc / "race_laps.parquet"
+    if status_path.exists():
+        sc_model = track_sc_model(pd.read_parquet(status_path), TRACK)
+    else:
+        sc_model = SafetyCarModel.from_rate(0.7, total_laps)
+
+    # Track-specific pit loss, estimated from in/out-lap times (fallback 21s).
+    pit_loss = 21.0
+    if racelaps_path.exists():
+        est = estimate_pit_loss(pd.read_parquet(racelaps_path))
+        pit_loss = est.get(TRACK, est.get("_global", 21.0))
 
     # Cap each compound's stint at its observed range so the optimiser doesn't
     # extrapolate the linear degradation model into the (censored) cliff region.
     limits = compound_stint_limits(laps, quantile=0.9)
     common = dict(sc_model=sc_model, n_runs=4000, pit_grid_step=3, min_stint=9,
-                  seed=42, max_stint=limits, objective="mean")
+                  seed=42, max_stint=limits, objective="mean",
+                  pit_loss_s=pit_loss, pit_loss_sc_s=round(pit_loss * 0.5, 1))
 
     # Pure data model vs data model + domain cliff prior.
     cliff = CliffPrior()  # SOFT cliffs at age 18, MEDIUM 28, HARD 38 (assumption)
@@ -68,6 +80,7 @@ def main() -> None:
                    for k, c in enumerate(strat.compounds) if c == "SOFT")
 
     print(f"{TRACK}: {total_laps} laps")
+    print(f"Calibrated: SC prob/lap={sc_model.prob_per_lap:.4f}, pit loss={pit_loss:.1f}s")
     print(f"Stint limits (p90 observed): {limits}")
     print(f"Cliff prior (DOMAIN ASSUMPTION): onset {cliff.cliff_age}, rate {cliff.rate}\n")
 
