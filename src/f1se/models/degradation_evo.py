@@ -79,13 +79,22 @@ def _race_key(laps: pd.DataFrame) -> pd.Series:
     return laps["year"].astype(int).astype(str) + "_" + laps["round"].astype(int).astype(str).str.zfill(2)
 
 
-def fit_evolution_model(laps: pd.DataFrame) -> EvoDegradationModel:
-    """Jointly fit per-compound degradation and per-race track evolution (OLS).
+def fit_evolution_model(
+    laps: pd.DataFrame, *, target_col: str = TARGET_COL
+) -> EvoDegradationModel:
+    """Jointly fit per-compound degradation and per-race lap-trend (OLS).
 
-    Expects cleaned dry laps with ``lap_time_fuel_corr_s``, ``tyre_life``,
-    ``lap_number``, ``driver`` and ``compound``.
+    Expects cleaned dry laps with ``tyre_life``, ``lap_number``, ``driver`` and
+    ``compound`` plus ``target_col``.
+
+    ``target_col`` selects what the lap-trend (``evo``) absorbs:
+      * ``lap_time_fuel_corr_s`` (default) — fuel already removed, so ``evo`` is
+        the *residual* trend (track evo + fuel miscalibration + management).
+      * ``lap_time_s`` (raw) — ``evo`` is the *total* race-lap trend including
+        fuel; used by :mod:`f1se.models.calibrate` to back out the effective
+        fuel coefficient and an assumption-free degradation estimate.
     """
-    for col in (TARGET_COL, AGE_COL, LAP_COL, "driver", "compound"):
+    for col in (target_col, AGE_COL, LAP_COL, "driver", "compound"):
         if col not in laps.columns:
             raise ValueError(f"evolution fit needs column '{col}'")
 
@@ -100,9 +109,17 @@ def fit_evolution_model(laps: pd.DataFrame) -> EvoDegradationModel:
     comp = pd.get_dummies(df["compound"], prefix="comp", drop_first=True)          # compound base offset
 
     X = pd.concat([car_d, evo, deg, comp], axis=1).astype(float)
-    y = df[TARGET_COL].to_numpy(float)
+    y = df[target_col].to_numpy(float)
 
-    beta, *_ = np.linalg.lstsq(X.to_numpy(), y, rcond=None)
+    # Column scaling before lstsq: the lap/age columns span ~1-70 while the
+    # dummies are 0/1, a dynamic range that makes the solve ill-conditioned on
+    # the (small-singular-value) lap-trend direction. Scale to unit norm, solve,
+    # then unscale — recovers the slopes precisely without changing the model.
+    Xv = X.to_numpy()
+    norms = np.linalg.norm(Xv, axis=0)
+    norms[norms == 0] = 1.0
+    beta_scaled, *_ = np.linalg.lstsq(Xv / norms, y, rcond=None)
+    beta = beta_scaled / norms
     coef = dict(zip(X.columns, beta))
 
     deg_slope = {c[len("deg_"):]: coef[c] for c in X.columns if c.startswith("deg_")}
