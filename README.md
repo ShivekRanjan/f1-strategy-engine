@@ -70,6 +70,25 @@ curl -X POST localhost:8000/recommend \
   -d '{"track": "Spanish Grand Prix", "objective": "mean"}'
 ```
 
+## Deploy (Phase 6)
+
+The three small processed datasets (~1.3 MB) are committed, so the app runs
+without hitting FastF1.
+
+**Docker** (the API + UI over one image):
+
+```bash
+docker compose up          # UI :8501, API :8000/docs
+# or a single service:
+docker build -t f1se . && docker run -p 8501:8501 f1se
+```
+
+**Free hosting:**
+- **Streamlit Community Cloud** (no Docker) — point it at this repo, set the main
+  file to `app/streamlit_app.py`; it installs from `requirements.txt`.
+- **Render / Fly.io** — deploy the `Dockerfile` (`render.yaml` included; `$PORT`
+  is honoured).
+
 ## Roadmap
 
 - [x] **Phase 0** — scaffold, FastF1 caching, tidy loader, cleaning + tests

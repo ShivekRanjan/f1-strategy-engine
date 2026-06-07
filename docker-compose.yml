@@ -1,0 +1,17 @@
+# Run both faces of the engine locally over one shared image:
+#   docker compose up
+# UI  -> http://localhost:8501   (Streamlit strategy explorer)
+# API -> http://localhost:8000/docs   (FastAPI)
+services:
+  ui:
+    build: .
+    image: f1se
+    ports:
+      - "8501:8501"
+
+  api:
+    image: f1se
+    build: .
+    command: uvicorn f1se.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"

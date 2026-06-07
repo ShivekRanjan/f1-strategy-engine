@@ -17,9 +17,17 @@ data/cache/
 
 # Data artifacts
 data/raw/
-data/processed/
+# Per-race intermediates are large and regenerable — keep them out.
+data/processed/by_race/
+data/processed/by_race_status/
+data/processed/by_race_pitlaps/
 *.parquet
 !tests/fixtures/*.parquet
+# ...but DO ship the small concatenated datasets the app needs to run (~1.3 MB),
+# so the deployed container starts instantly without hitting FastF1.
+!data/processed/dry_laps.parquet
+!data/processed/track_status.parquet
+!data/processed/race_laps.parquet
 
 # Notebooks
 .ipynb_checkpoints/

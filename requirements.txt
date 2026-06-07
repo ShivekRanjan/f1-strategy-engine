@@ -1,0 +1,4 @@
+# For hosts that install from requirements.txt (e.g. Streamlit Community Cloud).
+# Installs this package with its [app] extras (FastAPI/Streamlit/Plotly + base).
+# Local dev should prefer:  pip install -e ".[app,dev]"
+.[app]

@@ -1,0 +1,27 @@
+# Keep the image small and the build context clean.
+.git/
+.venv/
+venv/
+env/
+
+# Regenerable / large data — never ship (the small concatenated parquets ARE
+# copied explicitly in the Dockerfile).
+data/cache/
+data/raw/
+data/processed/by_race/
+data/processed/by_race_status/
+data/processed/by_race_pitlaps/
+
+# Dev-only
+notebooks/
+tests/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.idea/
+.vscode/

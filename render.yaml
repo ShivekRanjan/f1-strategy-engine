@@ -1,0 +1,10 @@
+# One-service deploy on Render (https://render.com) using the Dockerfile.
+# Render injects $PORT, which the Dockerfile's CMD honours.
+services:
+  - type: web
+    name: f1-strategy-engine
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /_stcore/health
+    autoDeploy: true

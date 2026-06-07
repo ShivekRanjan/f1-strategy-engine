@@ -13,7 +13,9 @@ here so it's tested once and reused by both. Build via :meth:`from_processed`
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -42,10 +44,30 @@ class StrategyEngine:
     global_pit_loss: float = DEFAULT_PIT_LOSS_S
 
     # ---- construction --------------------------------------------------------
+    @staticmethod
+    def _resolve_data_dir(data_dir=None) -> Path:
+        """Find the processed-data dir robustly across run contexts.
+
+        Order: explicit arg, ``F1SE_DATA_DIR`` env, CWD/data/processed (how the
+        app/API and cloud hosts run), then the repo root. CWD-relative matters
+        because a non-editable install (e.g. Streamlit Cloud) puts the package in
+        site-packages, where the repo-root path would not point at the data.
+        """
+        if data_dir is not None:
+            return Path(data_dir)
+        candidates = []
+        if os.environ.get("F1SE_DATA_DIR"):
+            candidates.append(Path(os.environ["F1SE_DATA_DIR"]))
+        candidates += [Path.cwd() / "data" / "processed", PROJECT_ROOT / "data" / "processed"]
+        for c in candidates:
+            if (c / "dry_laps.parquet").exists():
+                return c
+        return candidates[-1]  # let the subsequent read raise a clear error
+
     @classmethod
     def from_processed(cls, data_dir=None) -> "StrategyEngine":
         """Build from the processed parquet datasets (degradation + calibrations)."""
-        data_dir = data_dir or (PROJECT_ROOT / "data" / "processed")
+        data_dir = cls._resolve_data_dir(data_dir)
         dry = pd.read_parquet(data_dir / "dry_laps.parquet")
         deg_model = fit_linear_baseline(dry)
         total_laps = dry.groupby("event_name", observed=True)["lap_number"].max().astype(int).to_dict()

@@ -1,0 +1,10 @@
+[theme]
+base = "dark"
+primaryColor = "#e2231a"          # F1 red
+
+[server]
+headless = true
+enableCORS = false
+
+[browser]
+gatherUsageStats = false
