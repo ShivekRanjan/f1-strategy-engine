@@ -50,3 +50,6 @@ htmlcov/
 Thumbs.db
 .vscode/
 .idea/
+
+# Local Claude Code settings (machine-specific)
+.claude/settings.local.json
