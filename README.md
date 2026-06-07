@@ -1,5 +1,7 @@
 # F1 Strategy Engine
 
+![F1 Strategy Engine](assets/hero.png)
+
 A pit-strategy recommendation engine for Formula 1. Given a race situation, it
 recommends **what the team should do** — when to pit and which tyre compounds to
 fit — with quantified uncertainty.
