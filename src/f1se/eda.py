@@ -77,6 +77,24 @@ def load_clean_races(
     return pd.concat(frames, ignore_index=True)
 
 
+def compound_stint_limits(clean: pd.DataFrame, *, quantile: float = 0.9) -> dict[str, int]:
+    """Observed max stint length per compound (a ``quantile`` of stint lengths).
+
+    The tyre 'cliff' is censored out of race data — teams pit before it — so the
+    degradation model has no support beyond the stint lengths actually run. These
+    limits let the optimiser respect that support (don't extrapolate a too-gentle
+    linear fit into long-stint territory the model never saw), which is the
+    principled fix for the optimiser over-preferring soft tyres.
+    """
+    stint_max = clean.groupby(list(STINT_KEYS), observed=True).agg(
+        compound=("compound", "first"), max_age=("tyre_life", "max")
+    )
+    return {
+        str(c): int(np.ceil(g["max_age"].quantile(quantile)))
+        for c, g in stint_max.groupby("compound", observed=True)
+    }
+
+
 def fit_stint_slopes(clean: pd.DataFrame, *, min_laps: int = 6) -> pd.DataFrame:
     """Fit a linear degradation slope per stint on fuel-corrected pace.
 

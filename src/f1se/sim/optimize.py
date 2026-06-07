@@ -67,12 +67,16 @@ def enumerate_strategies(
     max_stops: int = 2,
     pit_grid_step: int = 3,
     min_stint: int = 8,
+    max_stint: dict[str, int] | None = None,
 ) -> list[Strategy]:
     """Generate candidate strategies, honouring the realistic constraints.
 
     Constraints:
       * 1..``max_stops`` stops;
       * every stint at least ``min_stint`` laps;
+      * each stint at most ``max_stint[compound]`` laps if given (keeps the
+        optimiser inside the tyre-age range the degradation model has data for —
+        see :func:`f1se.eda.compound_stint_limits`);
       * pit laps on a ``pit_grid_step`` grid;
       * at least two distinct compounds used (the dry-race rule).
     """
@@ -83,9 +87,14 @@ def enumerate_strategies(
         seqs = [c for c in product(compounds, repeat=n_stops + 1) if len(set(c)) >= 2]
         for pit_laps in combinations(grid, n_stops):
             bounds = [0, *pit_laps, total_laps]
-            if any(bounds[i + 1] - bounds[i] < min_stint for i in range(len(bounds) - 1)):
+            lengths = [bounds[i + 1] - bounds[i] for i in range(len(bounds) - 1)]
+            if any(L < min_stint for L in lengths):
                 continue
             for seq in seqs:
+                if max_stint is not None and any(
+                    lengths[k] > max_stint.get(seq[k], 10**9) for k in range(len(seq))
+                ):
+                    continue
                 out.append(Strategy(compounds=seq, pit_laps=tuple(pit_laps)))
     return out
 

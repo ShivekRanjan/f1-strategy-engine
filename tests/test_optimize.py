@@ -70,6 +70,19 @@ def test_risk_objective_can_change_the_pick():
     assert mean_pick in space and p85_pick in space
 
 
+def test_max_stint_constraint_prunes_long_stints():
+    # Cap SOFT at 12 laps: no strategy may run a soft stint longer than that.
+    limits = {"SOFT": 12, "MEDIUM": 40, "HARD": 40}
+    strats = enumerate_strategies(50, max_stops=2, pit_grid_step=4, min_stint=8,
+                                  max_stint=limits)
+    assert strats
+    for s in strats:
+        bounds = [0, *s.pit_laps, 50]
+        for k, comp in enumerate(s.compounds):
+            length = bounds[k + 1] - bounds[k]
+            assert length <= limits[comp]
+
+
 def test_invalid_objective_raises():
     with pytest.raises(ValueError):
         recommend_strategy(50, _pace, objective="nope", n_runs=2)

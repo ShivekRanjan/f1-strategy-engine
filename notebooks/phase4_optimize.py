@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 from f1se.config import PROJECT_ROOT
+from f1se.eda import compound_stint_limits
 from f1se.models.degradation import fit_linear_baseline
 from f1se.sim.optimize import recommend_strategy
 from f1se.sim.safety_car import SafetyCarModel
@@ -50,9 +51,14 @@ def main() -> None:
     pace_fn = pace_fn_from_model(model, TRACK, total_laps)
     sc_model = SafetyCarModel.from_rate(0.7, total_laps)
 
-    common = dict(sc_model=sc_model, n_runs=4000, pit_grid_step=3, min_stint=9, seed=42)
+    # Cap each compound's stint at its observed range so the optimiser doesn't
+    # extrapolate the linear degradation model into the (censored) cliff region.
+    limits = compound_stint_limits(laps, quantile=0.9)
+    common = dict(sc_model=sc_model, n_runs=4000, pit_grid_step=3, min_stint=9,
+                  seed=42, max_stint=limits)
 
-    print(f"{TRACK}: {total_laps} laps\n")
+    print(f"{TRACK}: {total_laps} laps")
+    print(f"Stint limits (p90 observed) used to bound extrapolation: {limits}\n")
     mean_res = recommend_strategy(total_laps, pace_fn, objective="mean", **common)
     print(f"Searched {mean_res.n_evaluated} strategies.\n")
     print("=== Objective: minimise EXPECTED time ===")
