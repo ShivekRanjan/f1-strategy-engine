@@ -91,6 +91,54 @@ def stint_plan(strategy: Strategy, total_laps: int) -> list[tuple[str, int, bool
     return plan
 
 
+def draw_scenarios(
+    total_laps: int,
+    n_runs: int,
+    *,
+    sc_model: SafetyCarModel | None = None,
+    pace_noise_s: float = 0.3,
+    seed: int = 0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Sample the shared random draws (sc_mask, noise) for a set of races.
+
+    Drawing these once and reusing them across strategies gives true common
+    random numbers — every strategy faces the *same* sampled races, so the
+    comparison is paired and low-variance.
+    """
+    rng = np.random.default_rng(seed)
+    if sc_model is None:
+        sc_mask = np.zeros((n_runs, total_laps), dtype=bool)
+    else:
+        sc_mask = sc_model.sample_mask(total_laps, n_runs, rng)
+    noise = rng.normal(0.0, pace_noise_s, size=(n_runs, total_laps))
+    return sc_mask, noise
+
+
+def green_and_pit(strategy: Strategy, total_laps: int, pace_fn: PaceFn) -> tuple[np.ndarray, np.ndarray]:
+    """Deterministic per-lap green lap times and the pit-lap mask for a strategy."""
+    plan = stint_plan(strategy, total_laps)
+    green_det = np.array([pace_fn(c, age, i + 1) for i, (c, age, _) in enumerate(plan)])
+    pit_mask = np.array([is_pit for _, _, is_pit in plan], dtype=bool)
+    return green_det, pit_mask
+
+
+def race_totals(
+    green_det: np.ndarray,
+    pit_mask: np.ndarray,
+    sc_mask: np.ndarray,
+    noise: np.ndarray,
+    *,
+    pit_loss_s: float = 21.0,
+    pit_loss_sc_s: float = 11.0,
+    sc_lap_factor: float = 1.4,
+) -> np.ndarray:
+    """Total race time per sampled race, given deterministic pace + shared draws."""
+    sc_det = green_det * sc_lap_factor
+    lap_times = np.where(sc_mask, sc_det, green_det) + np.where(sc_mask, 0.0, noise)
+    pit_cost = np.where(sc_mask, pit_loss_sc_s, pit_loss_s) * pit_mask
+    return (lap_times + pit_cost).sum(axis=1)
+
+
 def simulate_race(
     strategy: Strategy,
     total_laps: int,
@@ -119,26 +167,11 @@ def simulate_race(
     pace_noise_s
         Std of per-lap Gaussian pace noise.
     """
-    plan = stint_plan(strategy, total_laps)
-    green_det = np.array([pace_fn(c, age, i + 1) for i, (c, age, _) in enumerate(plan)])
-    pit_mask = np.array([is_pit for _, _, is_pit in plan], dtype=bool)
-    sc_det = green_det * sc_lap_factor
-
-    rng = np.random.default_rng(seed)
-    if sc_model is None:
-        sc_mask = np.zeros((n_runs, total_laps), dtype=bool)
-    else:
-        sc_mask = sc_model.sample_mask(total_laps, n_runs, rng)
-
-    noise = rng.normal(0.0, pace_noise_s, size=(n_runs, total_laps))
-    # np.where already broadcasts green_det/sc_det (laps,) against sc_mask (runs,laps).
-    lap_times = np.where(sc_mask, sc_det, green_det) + np.where(sc_mask, 0.0, noise)
-
-    # Pit cost: cheaper if that lap is under SC.
-    pit_cost = np.where(sc_mask, pit_loss_sc_s, pit_loss_s) * pit_mask[None, :]
-    lap_times = lap_times + pit_cost
-
-    totals = lap_times.sum(axis=1)
+    green_det, pit_mask = green_and_pit(strategy, total_laps, pace_fn)
+    sc_mask, noise = draw_scenarios(total_laps, n_runs, sc_model=sc_model,
+                                    pace_noise_s=pace_noise_s, seed=seed)
+    totals = race_totals(green_det, pit_mask, sc_mask, noise, pit_loss_s=pit_loss_s,
+                         pit_loss_sc_s=pit_loss_sc_s, sc_lap_factor=sc_lap_factor)
     p_sc = float(np.mean(sc_mask.any(axis=1))) if sc_model is not None else 0.0
     return SimResult(samples=totals, strategy=strategy, p_safety_car=p_sc)
 
