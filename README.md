@@ -46,6 +46,30 @@ clean = clean_laps(laps)                        # filtered + fuel-corrected
 `clean` carries `lap_time_fuel_corr_s` — fuel-burn trend removed, so the residual
 is tyre degradation.
 
+## Run the engine (Phase 5)
+
+Build the datasets once (network; cached), then launch the UI or the API:
+
+```powershell
+pip install -e ".[app]"
+python -m f1se.data.ingest            # dry laps (degradation model)
+python -m f1se.data.ingest status     # track status (safety-car calibration)
+python -m f1se.data.ingest racelaps   # lap times (pit-loss calibration)
+
+streamlit run app/streamlit_app.py        # interactive strategy explorer
+uvicorn f1se.api:app --reload             # REST API at /docs
+```
+
+Both are thin layers over `f1se.engine.StrategyEngine`, which assembles the
+fitted degradation model, the per-track safety-car and pit-loss calibrations,
+the stint guards, and the optimiser. Example API call:
+
+```bash
+curl -X POST localhost:8000/recommend \
+  -H 'Content-Type: application/json' \
+  -d '{"track": "Spanish Grand Prix", "objective": "mean"}'
+```
+
 ## Roadmap
 
 - [x] **Phase 0** — scaffold, FastF1 caching, tidy loader, cleaning + tests
@@ -54,7 +78,7 @@ is tyre degradation.
 - [ ] **Phase 2.5** — sequence lap-time model (LSTM/ConvLSTM)
 - [x] **Phase 3** — Monte Carlo simulator + safety-car hazard model — vectorised race-time simulation with stochastic SC; common-random-numbers paired strategy comparison (distributions, not points)
 - [x] **Phase 4** — strategy optimiser — searches stops × pit laps × compound sequence vs stochastic SC; pluggable objective (expected/median/risk-averse p85), paired win-probabilities *(stretch: in-race re-optimisation)*
-- [ ] **Phase 5** — FastAPI service + Streamlit UI
+- [x] **Phase 5** — FastAPI service + Streamlit UI — thin layers over `f1se.engine.StrategyEngine`; recommend/simulate endpoints + interactive strategy explorer
 - [ ] **Phase 6** — Docker + live deploy + hero-image README
 - [ ] **Phase A** *(optional)* — standalone podium predictor
 
