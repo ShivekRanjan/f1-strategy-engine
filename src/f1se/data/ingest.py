@@ -84,6 +84,65 @@ def build_dry_dataset(
     return full
 
 
+BY_RACE_STATUS = PROCESSED / "by_race_status"
+
+
+def build_track_status_dataset(
+    years: list[int],
+    *,
+    session: str = "R",
+    out_name: str = "track_status.parquet",
+) -> pd.DataFrame:
+    """Pull per-lap ``track_status`` for every race (for safety-car calibration).
+
+    Loads laps only (no telemetry/weather) for speed, and keeps just the columns
+    needed to detect safety-car laps. Resumable per race.
+    """
+    BY_RACE_STATUS.mkdir(parents=True, exist_ok=True)
+    enable_cache()
+    import fastf1
+
+    frames: list[pd.DataFrame] = []
+    for year in years:
+        try:
+            rounds = season_rounds(year)
+        except Exception as e:  # pragma: no cover - network
+            print(f"! schedule {year} failed: {e}", flush=True)
+            continue
+        for rnd in rounds:
+            fp = BY_RACE_STATUS / f"{year}_{rnd:02d}.parquet"
+            if fp.exists():
+                frames.append(pd.read_parquet(fp))
+                continue
+            try:
+                ses = fastf1.get_session(year, rnd, session)
+                ses.load(laps=True, telemetry=False, weather=False, messages=False)
+                laps = ses.laps
+                df = pd.DataFrame({
+                    "year": int(year),
+                    "round": int(ses.event["RoundNumber"]),
+                    "event_name": str(ses.event["EventName"]),
+                    "lap_number": laps["LapNumber"].astype("int64"),
+                    "driver": laps["Driver"].astype("string"),
+                    "track_status": laps["TrackStatus"].astype("string"),
+                })
+                df.to_parquet(fp)
+                frames.append(df)
+                print(f"  status {year} r{rnd:02d}: {df['event_name'].iloc[0]}", flush=True)
+            except Exception as e:  # pragma: no cover - network
+                print(f"  ! {year} r{rnd:02d} status FAILED: {e}", flush=True)
+
+    full = pd.concat(frames, ignore_index=True)
+    full.to_parquet(PROCESSED / out_name)
+    print(f"\nDONE: track status for {len(frames)} races -> {PROCESSED / out_name}", flush=True)
+    return full
+
+
 if __name__ == "__main__":
-    yrs = [int(a) for a in sys.argv[1:]] or [2023, 2024]
-    build_dry_dataset(yrs)
+    args = sys.argv[1:]
+    if args and args[0] == "status":
+        yrs = [int(a) for a in args[1:]] or [2023, 2024]
+        build_track_status_dataset(yrs)
+    else:
+        yrs = [int(a) for a in args] or [2023, 2024]
+        build_dry_dataset(yrs)

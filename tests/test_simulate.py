@@ -5,7 +5,15 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from f1se.sim.safety_car import SafetyCarModel
+import pandas as pd
+
+from f1se.sim.safety_car import (
+    SafetyCarModel,
+    calibrate_per_track,
+    safety_car_summary,
+    sc_laps_in_race,
+    sc_period_durations,
+)
 from f1se.sim.simulate import (
     Strategy,
     compare_strategies,
@@ -91,6 +99,60 @@ def test_sc_mask_shape_and_rate():
     mask = sc.sample_mask(50, 100, rng)
     assert mask.shape == (100, 50)
     assert not mask.any()  # zero hazard -> no SC
+
+
+def _race_status(year, rnd, n_laps, sc_laps, n_cars=4):
+    """Synthetic per-driver-lap track status: '4' on sc_laps, '1' otherwise."""
+    rows = []
+    for d in range(n_cars):
+        for lap in range(1, n_laps + 1):
+            rows.append({"year": year, "round": rnd, "lap_number": lap,
+                         "track_status": "4" if lap in sc_laps else "1"})
+    return pd.DataFrame(rows)
+
+
+def test_sc_laps_detected_when_most_cars_show_code():
+    race = _race_status(2023, 1, 20, sc_laps={5, 6, 7, 14})
+    assert sc_laps_in_race(race) == [5, 6, 7, 14]
+
+
+def test_sc_period_durations_groups_contiguous_laps():
+    assert sc_period_durations([5, 6, 7, 14]) == [3, 1]   # one 3-lap, one 1-lap period
+    assert sc_period_durations([]) == []
+
+
+def test_safety_car_summary_and_calibration():
+    # Race A: one 3-lap SC; Race B: none. 1 period over 2 races, 50% had SC.
+    status = pd.concat([
+        _race_status(2023, 1, 50, sc_laps={10, 11, 12}),
+        _race_status(2023, 2, 50, sc_laps=set()),
+    ], ignore_index=True)
+    s = safety_car_summary(status)
+    assert s["n_periods"] == 1
+    assert s["mean_duration"] == 3.0
+    assert s["pct_races_with_sc"] == 50.0
+    model = SafetyCarModel.from_track_status(status)
+    assert model.mean_duration == 3
+    assert np.isclose(model.prob_per_lap, 1 / 100)  # 1 period / 100 race laps
+
+
+def test_per_track_calibration_shrinks_toward_global():
+    # High-SC track (many periods) and a no-SC track, plus filler races so the
+    # global rate is moderate. Shrinkage pulls each toward the global rate.
+    races = [_race_status(2023, 1, 50, sc_laps={10, 11, 12}),
+             _race_status(2023, 2, 50, sc_laps={20, 21}),
+             _race_status(2024, 1, 50, sc_laps={5, 6, 7})]  # event R1 = SC-prone
+    races[0]["event_name"] = races[1]["event_name"] = races[2]["event_name"] = "Chaos GP"
+    calm = _race_status(2023, 3, 50, sc_laps=set()); calm["event_name"] = "Calm GP"
+    status = pd.concat(races + [calm], ignore_index=True)
+
+    models = calibrate_per_track(status, shrinkage_laps=150.0)
+    g = safety_car_summary(status)
+    global_prob = g["n_periods"] / g["total_race_laps"]
+    # SC-prone track sits above global; calm track below — but the calm track is
+    # shrunk strictly ABOVE zero (absence of evidence != zero probability).
+    assert models["Chaos GP"].prob_per_lap > global_prob
+    assert 0 < models["Calm GP"].prob_per_lap < global_prob
 
 
 def test_compare_strategies_sorted_by_mean():
