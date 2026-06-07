@@ -177,18 +177,21 @@ def simulate_race(
 
 
 def pace_fn_from_model(deg_model, track: str, total_laps: int, *, sec_per_kg=0.03,
-                       start_fuel_kg=110.0) -> PaceFn:
+                       start_fuel_kg=110.0, cliff=None) -> PaceFn:
     """Build a ``pace_fn`` from a fitted degradation model + a fuel model.
 
-    Green lap time = fuel-corrected pace (intercept + degradation) + fuel penalty,
-    so heavy early laps are slower and pace rises with tyre age.
+    Green lap time = fuel-corrected pace (intercept + data-fitted degradation)
+    + fuel penalty + optional :class:`~f1se.models.cliff.CliffPrior` extra. The
+    cliff term is a domain prior (not data); pass ``cliff=None`` for the pure
+    data model.
     """
     from f1se.models.degradation import predict_corrected_laptime
 
     def pace_fn(compound: str, tyre_age: int, lap: int) -> float:
         corrected = predict_corrected_laptime(deg_model, compound, tyre_age, track=track)
         fuel_mass = start_fuel_kg * max(total_laps - lap, 0) / total_laps
-        return corrected + sec_per_kg * fuel_mass
+        extra = cliff.extra_loss(compound, tyre_age) if cliff is not None else 0.0
+        return corrected + sec_per_kg * fuel_mass + extra
 
     return pace_fn
 
