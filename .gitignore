@@ -28,6 +28,7 @@ data/processed/by_race_pitlaps/
 !data/processed/dry_laps.parquet
 !data/processed/track_status.parquet
 !data/processed/race_laps.parquet
+!data/processed/results.parquet
 
 # Notebooks
 .ipynb_checkpoints/
