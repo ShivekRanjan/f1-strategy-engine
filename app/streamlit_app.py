@@ -45,10 +45,13 @@ def main() -> None:
 
     with st.sidebar:
         st.header("Race & objective")
-        track = st.selectbox("Circuit", engine.tracks(),
-                             index=min(engine.tracks().index("Spanish Grand Prix")
-                                       if "Spanish Grand Prix" in engine.tracks() else 0,
-                                       len(engine.tracks()) - 1))
+        # Mark circuits that lack full 3-compound data (predictions are rougher).
+        all_tracks = engine.tracks()
+        labels = {t: (t if engine.is_well_sampled(t) else f"{t}  ⚠ limited data")
+                  for t in all_tracks}
+        track = st.selectbox("Circuit", all_tracks, format_func=lambda t: labels[t],
+                             index=all_tracks.index("Spanish Grand Prix")
+                             if "Spanish Grand Prix" in all_tracks else 0)
         objective = st.selectbox("Objective", ["mean", "median", "p85"],
                                  format_func={"mean": "Minimise expected time",
                                               "median": "Minimise median time",
@@ -59,6 +62,10 @@ def main() -> None:
         n_runs = st.select_slider("Monte Carlo runs", [1000, 2000, 4000, 8000], value=2000)
 
     info = engine.race_info(track)
+    if not info["well_sampled"]:
+        st.warning("⚠ Limited data for this circuit — at least one compound has no "
+                   "fitted per-track pace, so its predictions lean on a fallback and "
+                   "are rougher. Numbers stay realistic but treat them with caution.")
     c1, c2, c3 = st.columns(3)
     c1.metric("Race distance", f"{info['total_laps']} laps")
     c2.metric("Safety-car risk", f"{info['sc_prob_per_lap']*info['total_laps']*100:.0f}% / race",

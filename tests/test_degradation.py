@@ -68,6 +68,23 @@ def test_linear_beats_naive_when_degradation_is_real():
     assert pace_loss_mae(model, laps) < 1e-6
 
 
+def test_base_pace_fallback_never_collapses_to_zero():
+    # The Las Vegas bug: a thin (track,compound) group must fall back to the
+    # track's base pace (then global), NOT to a zero intercept.
+    from f1se.models.degradation import DegradationModel, predict_corrected_laptime
+    m = DegradationModel(
+        group_cols=("event_name", "compound"),
+        slopes={}, intercepts={("A", "HARD"): 90.0}, compound_slope={}, global_slope=0.05,
+        track_base={"A": 92.0, "B": 95.0}, global_base=93.0,
+    )
+    # Fitted (A, HARD): uses its own intercept.
+    assert np.isclose(predict_corrected_laptime(m, "HARD", 10, track="A"), 90.0 + 0.5)
+    # Unfitted (A, SOFT): falls back to track A's base pace (not 0).
+    assert np.isclose(predict_corrected_laptime(m, "SOFT", 10, track="A"), 92.0 + 0.5)
+    # Unknown track C: falls back to the global base (not 0).
+    assert np.isclose(predict_corrected_laptime(m, "SOFT", 10, track="C"), 93.0 + 0.5)
+
+
 def test_cross_val_beats_naive_on_held_out_races():
     laps = _dry_laps({f"R{r}": 0.05 for r in range(6)})  # 6 races -> GroupKFold
     res = cross_val_mae(laps, n_splits=3, min_laps=10)

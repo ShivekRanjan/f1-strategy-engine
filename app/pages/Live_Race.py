@@ -44,9 +44,10 @@ if not DRY.exists():
 engine, laps = _engine(), _laps()
 
 c1, c2, c3 = st.columns(3)
-track = c1.selectbox("Circuit", engine.tracks(),
-                     index=engine.tracks().index("Spanish Grand Prix")
-                     if "Spanish Grand Prix" in engine.tracks() else 0)
+_tracks = engine.tracks()
+track = c1.selectbox("Circuit", _tracks,
+                     format_func=lambda t: t if engine.is_well_sampled(t) else f"{t}  ⚠ limited data",
+                     index=_tracks.index("Spanish Grand Prix") if "Spanish Grand Prix" in _tracks else 0)
 ev = laps[laps["event_name"] == track]
 seasons = sorted(ev["year"].unique())
 year = c2.selectbox("Season", seasons, index=len(seasons) - 1)

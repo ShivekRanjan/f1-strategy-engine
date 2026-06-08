@@ -42,6 +42,7 @@ class StrategyEngine:
     stint_limits: dict[str, int] = field(default_factory=dict)
     global_sc: SafetyCarModel = field(default_factory=SafetyCarModel)
     global_pit_loss: float = DEFAULT_PIT_LOSS_S
+    well_sampled_tracks: set = field(default_factory=set)
 
     # ---- construction --------------------------------------------------------
     @staticmethod
@@ -88,6 +89,16 @@ class StrategyEngine:
             pit_by_track = estimate_pit_loss(pd.read_parquet(racelaps_fp))
             global_pit = pit_by_track.pop("_global", DEFAULT_PIT_LOSS_S)
 
+        # A track is "well sampled" only if all three dry compounds have a fitted
+        # per-track pace. Tracks missing one (usually softs, which run few laps)
+        # lean on the rougher base-pace fallback there and are flagged so the UI
+        # can warn — predictions stay realistic (the fallback prevents the old
+        # zero-base collapse) but are less precise on the missing compound.
+        fitted_counts: dict[str, int] = {}
+        for ev, _comp in deg_model.intercepts:
+            fitted_counts[str(ev)] = fitted_counts.get(str(ev), 0) + 1
+        well_sampled = {ev for ev, n in fitted_counts.items() if n >= 3}
+
         return cls(
             deg_model=deg_model,
             total_laps_by_track={str(k): int(v) for k, v in total_laps.items()},
@@ -96,11 +107,18 @@ class StrategyEngine:
             stint_limits=limits,
             global_sc=global_sc,
             global_pit_loss=float(global_pit),
+            well_sampled_tracks=well_sampled,
         )
 
     # ---- per-track parameters ------------------------------------------------
-    def tracks(self) -> list[str]:
-        return sorted(self.total_laps_by_track)
+    def tracks(self, *, reliable_only: bool = False) -> list[str]:
+        ts = sorted(self.total_laps_by_track)
+        if reliable_only and self.well_sampled_tracks:
+            ts = [t for t in ts if t in self.well_sampled_tracks]
+        return ts
+
+    def is_well_sampled(self, track: str) -> bool:
+        return track in self.well_sampled_tracks
 
     def _total_laps(self, track: str) -> int:
         if track not in self.total_laps_by_track:
@@ -122,6 +140,7 @@ class StrategyEngine:
             "sc_mean_duration": sc.mean_duration,
             "pit_loss_s": round(self._pit_loss(track), 1),
             "stint_limits": self.stint_limits,
+            "well_sampled": self.is_well_sampled(track),
         }
 
     # ---- core operations -----------------------------------------------------

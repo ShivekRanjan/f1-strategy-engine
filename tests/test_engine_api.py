@@ -64,6 +64,17 @@ def test_engine_recommend_live_from_current_state():
     assert "best_plan" in out
 
 
+def test_engine_reliable_tracks_filter_and_flag():
+    model = _synthetic_engine().deg_model
+    eng = StrategyEngine(deg_model=model, total_laps_by_track={"A": 50, "B": 50},
+                         well_sampled_tracks={"A"})
+    assert eng.tracks() == ["A", "B"]
+    assert eng.tracks(reliable_only=True) == ["A"]          # B filtered out
+    assert eng.is_well_sampled("A") and not eng.is_well_sampled("B")
+    # Empty well-sampled set is a no-op guard (returns all tracks).
+    assert _synthetic_engine().tracks(reliable_only=True) == ["Test GP"]
+
+
 def test_engine_unknown_track_raises():
     with pytest.raises(KeyError):
         _synthetic_engine().recommend("Nowhere GP")

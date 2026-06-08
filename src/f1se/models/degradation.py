@@ -54,6 +54,8 @@ class DegradationModel:
     intercepts: dict[tuple, float]
     compound_slope: dict[str, float]
     global_slope: float
+    track_base: dict[str, float] = field(default_factory=dict)   # fresh-pace fallback per track
+    global_base: float = 0.0                                     # last-resort base pace
     meta: dict = field(default_factory=dict)
 
     def _key(self, compound: str, track: str | None) -> tuple | None:
@@ -134,12 +136,24 @@ def fit_linear_baseline(
     gslope = _fe_slope(age_dm, corr_dm)
     global_slope = gslope if gslope is not None else 0.0
 
+    # Base-pace fallbacks for tracks/compounds too thin to fit a per-group
+    # intercept: a per-track fresh pace (mean corrected, de-aged by the global
+    # slope) and a global one. Prevents absolute predictions collapsing to ~0 on
+    # under-sampled circuits (e.g. a chaotic new race with few clean dry laps).
+    track_base: dict[str, float] = {}
+    if "event_name" in laps.columns:
+        for ev, grp in laps.groupby("event_name", observed=True):
+            track_base[str(ev)] = float(grp[TARGET_COL].mean() - global_slope * grp[AGE_COL].mean())
+    global_base = float(laps[TARGET_COL].mean() - global_slope * laps[AGE_COL].mean())
+
     return DegradationModel(
         group_cols=tuple(group_cols),
         slopes=slopes,
         intercepts=intercepts,
         compound_slope=compound_slope,
         global_slope=global_slope,
+        track_base=track_base,
+        global_base=global_base,
         meta={"n_groups": len(slopes), "min_laps": min_laps, "n_train_laps": len(laps)},
     )
 
@@ -169,8 +183,10 @@ def predict_corrected_laptime(
     """
     key = model._key(compound, track)
     intercept = model.intercepts.get(key) if key is not None else None
-    if intercept is None:  # no base pace for this track -> fall back to 0 origin
-        intercept = 0.0
+    if intercept is None and track is not None:        # thin (track,compound) group
+        intercept = model.track_base.get(track)        # -> the track's overall base pace
+    if intercept is None:                              # brand-new track -> global base
+        intercept = model.global_base
     return float(intercept + model.slope(compound, track) * tyre_age)
 
 
