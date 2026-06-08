@@ -61,6 +61,11 @@ def fmt_plan(compounds, pit_laps) -> str:
     return " → ".join(compounds) + (f"  (pit lap {', '.join(map(str, pit_laps))})" if pit_laps else "")
 
 
+def beats_pick(rank: int, prob: float) -> str:
+    """Plain-English version of the paired win-probability column."""
+    return "★ our pick" if rank == 1 else f"wins {prob*100:.0f}% of races"
+
+
 def dist_figure(sim: dict) -> go.Figure:
     edges = np.array(sim["hist_edges"]) / 60.0          # seconds -> minutes
     centers = (edges[:-1] + edges[1:]) / 2
@@ -110,14 +115,19 @@ def strategy_tab(engine: StrategyEngine) -> None:
 
     left, right = st.columns([3, 2])
     with left:
-        st.markdown("**Shortlist** (paired win-probability vs the recommendation)")
+        st.markdown("**Other strategies we considered**")
         df = pd.DataFrame(rec["shortlist"])
         df["plan"] = [fmt_plan(c, p) for c, p in zip(df["compounds"], df["pit_laps"])]
-        for col in ("mean_s", "p50_s", "p90_s"):
-            df[col.replace("_s", "")] = df[col].map(clock)
-        df["P(beat best)"] = (df["win_prob_vs_best"] * 100).round(0).astype(int).astype(str) + "%"
-        st.dataframe(df[["rank", "plan", "mean", "p50", "p90", "P(beat best)"]].set_index("rank"),
-                     use_container_width=True)
+        df["expected"] = df["mean_s"].map(clock)
+        df["typical"] = df["p50_s"].map(clock)
+        df["bad luck"] = df["p90_s"].map(clock)
+        df["how it compares"] = [beats_pick(r, p) for r, p in zip(df["rank"], df["win_prob_vs_best"])]
+        st.dataframe(df[["rank", "plan", "expected", "typical", "bad luck", "how it compares"]]
+                     .set_index("rank"), use_container_width=True)
+        st.caption("**expected** = average race time · **typical** = middle outcome · "
+                   "**bad luck** = a rough race (worst ~10%). **'how it compares'** = how often "
+                   "that plan would actually finish ahead of our pick across thousands of "
+                   "simulated races — lower means our pick is more clearly best.")
     with right:
         sim = engine.simulate(track, tuple(best["compounds"]), tuple(best["pit_laps"]),
                               use_cliff=use_cliff, n_runs=max(n_runs, 4000))
@@ -199,10 +209,12 @@ def live_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
     st.caption(f"Compounds used so far: {', '.join(state.compounds_used)} · "
                f"evaluated {rec['n_evaluated']} remaining plans")
     df = pd.DataFrame(rec["shortlist"])
-    df["P(beat best)"] = (df["win_prob_vs_best"] * 100).round(0).astype(int).astype(str) + "%"
-    df["remaining"] = df["mean_remaining_s"].map(clock)
-    st.dataframe(df[["rank", "plan", "remaining", "P(beat best)"]].set_index("rank"),
+    df["how it compares"] = [beats_pick(r, p) for r, p in zip(df["rank"], df["win_prob_vs_best"])]
+    df["time left"] = df["mean_remaining_s"].map(clock)
+    st.dataframe(df[["rank", "plan", "time left", "how it compares"]].set_index("rank"),
                  use_container_width=True)
+    st.caption("**time left** = average time to the flag · **'how it compares'** = how often that "
+               "plan would beat our pick across simulated races (lower → our pick is clearly best).")
 
 
 # --- layout -----------------------------------------------------------------
