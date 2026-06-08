@@ -37,6 +37,7 @@ class StrategyEngine:
 
     deg_model: DegradationModel
     total_laps_by_track: dict[str, int]
+    deg_model_2026: DegradationModel | None = None
     sc_models: dict[str, SafetyCarModel] = field(default_factory=dict)
     pit_loss_by_track: dict[str, float] = field(default_factory=dict)
     stint_limits: dict[str, int] = field(default_factory=dict)
@@ -70,7 +71,15 @@ class StrategyEngine:
         """Build from the processed parquet datasets (degradation + calibrations)."""
         data_dir = cls._resolve_data_dir(data_dir)
         dry = pd.read_parquet(data_dir / "dry_laps.parquet")
-        deg_model = fit_linear_baseline(dry)
+        # Era-aware: 2026 is a regulation reset. Fit the historical model on the
+        # old cars, and (if 2026 data exists) a shrunk model that blends 2026 with
+        # the old-era prior. Components below (SC, pit loss) transfer and use all.
+        has_2026 = bool((dry["year"] >= 2026).any())
+        deg_model = fit_linear_baseline(dry[dry["year"] < 2026] if has_2026 else dry)
+        deg_model_2026 = None
+        if has_2026:
+            from f1se.models.era import fit_era_shrunk_degradation
+            deg_model_2026 = fit_era_shrunk_degradation(dry, target_min_year=2026)
         total_laps = dry.groupby("event_name", observed=True)["lap_number"].max().astype(int).to_dict()
         limits = compound_stint_limits(dry)
 
@@ -101,6 +110,7 @@ class StrategyEngine:
 
         return cls(
             deg_model=deg_model,
+            deg_model_2026=deg_model_2026,
             total_laps_by_track={str(k): int(v) for k, v in total_laps.items()},
             sc_models=sc_models,
             pit_loss_by_track=pit_by_track,
@@ -144,9 +154,15 @@ class StrategyEngine:
         }
 
     # ---- core operations -----------------------------------------------------
-    def _pace_fn(self, track: str, total_laps: int, use_cliff: bool):
+    def _model_for(self, season: int | None):
+        """Pick the era-appropriate degradation model (2026 -> shrunk, else prior)."""
+        if season is not None and season >= 2026 and self.deg_model_2026 is not None:
+            return self.deg_model_2026
+        return self.deg_model
+
+    def _pace_fn(self, track: str, total_laps: int, use_cliff: bool, season: int | None = None):
         cliff = CliffPrior() if use_cliff else None
-        return pace_fn_from_model(self.deg_model, track, total_laps, cliff=cliff)
+        return pace_fn_from_model(self._model_for(season), track, total_laps, cliff=cliff)
 
     def recommend(
         self,
@@ -158,10 +174,11 @@ class StrategyEngine:
         n_runs: int = 2000,
         top_k: int = 5,
         seed: int = 0,
+        season: int | None = None,
     ) -> dict:
         """Recommend a strategy for ``track`` with a ranked, uncertainty-aware shortlist."""
         total_laps = self._total_laps(track)
-        pace_fn = self._pace_fn(track, total_laps, use_cliff)
+        pace_fn = self._pace_fn(track, total_laps, use_cliff, season)
         pit_loss = self._pit_loss(track)
         res = recommend_strategy(
             total_laps, pace_fn,
@@ -192,12 +209,13 @@ class StrategyEngine:
         n_runs: int = 2000,
         top_k: int = 5,
         seed: int = 0,
+        season: int | None = None,
     ) -> dict:
         """In-race: recommend the best strategy for the REMAINING laps from now."""
         from f1se.sim.inrace import RaceState, recommend_remaining
 
         total_laps = self._total_laps(track)
-        pace_fn = self._pace_fn(track, total_laps, use_cliff)
+        pace_fn = self._pace_fn(track, total_laps, use_cliff, season)
         pit_loss = self._pit_loss(track)
         used = tuple(compounds_used) or (current_compound,)
         state = RaceState(total_laps, current_lap, current_compound, tyre_age, used)
@@ -230,10 +248,11 @@ class StrategyEngine:
         n_runs: int = 4000,
         seed: int = 0,
         hist_bins: int = 40,
+        season: int | None = None,
     ) -> dict:
         """Simulate one explicit strategy; return summary + a histogram for plotting."""
         total_laps = self._total_laps(track)
-        pace_fn = self._pace_fn(track, total_laps, use_cliff)
+        pace_fn = self._pace_fn(track, total_laps, use_cliff, season)
         pit_loss = self._pit_loss(track)
         strat = Strategy(compounds=tuple(compounds), pit_laps=tuple(pit_laps))
         result = simulate_race(
