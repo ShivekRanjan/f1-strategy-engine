@@ -110,7 +110,8 @@ def strategy_tab(engine: StrategyEngine) -> None:
                                max_stops=max_stops, n_runs=n_runs)
     best = rec["best"]
     st.success(f"**{fmt_plan(best['compounds'], best['pit_laps'])}**  —  "
-               f"expected **{clock(best['mean_s'])}**  (p50 {clock(best['p50_s'])}, p90 {clock(best['p90_s'])})")
+               f"expected **{clock(best['mean_s'])}**  ·  typical {clock(best['p50_s'])}  ·  "
+               f"bad luck {clock(best['p90_s'])}")
     st.caption(f"Searched {rec['n_evaluated']} strategies · objective: {objective}")
 
     left, right = st.columns([3, 2])
