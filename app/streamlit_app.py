@@ -16,7 +16,7 @@ import streamlit as st
 from f1se.config import PROJECT_ROOT
 from f1se.engine import StrategyEngine
 from f1se.live import state_from_laps
-from f1se.standalone.championship import predict_season
+from f1se.standalone.championship import predict_season, project_ongoing_season
 from f1se.standalone.podium import build_features, predict_race, train_podium_model
 
 st.set_page_config(page_title="F1 Strategy Engine", page_icon="🏎️", layout="wide")
@@ -45,8 +45,14 @@ def load_outcome():
     feats = build_features(results)
     test_year = int(results["year"].max())
     model = train_podium_model(feats, test_year=test_year)
-    champ = predict_season(results, test_year, n_sims=5000)
-    return results, feats, model, test_year, champ
+    full = int(results.groupby("year")["round"].nunique().max())          # ~full-season length
+    done = int(results[results["year"] == test_year]["round"].nunique())
+    ongoing = done < full - 2
+    if ongoing:                                                            # mid-season (e.g. 2026)
+        champ = project_ongoing_season(results, test_year, total_races=full, n_sims=5000)
+    else:
+        champ = predict_season(results, test_year, n_sims=5000)
+    return results, feats, model, test_year, champ, ongoing, done, full
 
 
 # --- helpers ----------------------------------------------------------------
@@ -82,19 +88,28 @@ def track_label(engine, t: str) -> str:
 
 
 # --- Tab 1: Strategy --------------------------------------------------------
-def strategy_tab(engine: StrategyEngine) -> None:
+def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
     tracks = engine.tracks()
-    c1, c2, c3, c4 = st.columns([3, 3, 2, 2])
+    c1, c2, c3, c4, c5 = st.columns([3, 2, 3, 2, 2])
     track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t),
                          index=tracks.index("Spanish Grand Prix") if "Spanish Grand Prix" in tracks else 0)
-    objective = c2.selectbox("Objective", ["mean", "median", "p85"],
+    years = sorted(laps[laps["event_name"] == track]["year"].unique())
+    season = c2.selectbox("Season", years, index=len(years) - 1,
+                          format_func=lambda y: f"{y}  (new regs)" if y >= 2026 else str(y))
+    objective = c3.selectbox("Objective", ["mean", "median", "p85"],
                              format_func={"mean": "Minimise expected time",
                                           "median": "Minimise median time",
                                           "p85": "Risk-averse (85th pct)"}.get)
-    max_stops = c3.slider("Max stops", 1, 3, 2)
-    n_runs = c4.select_slider("MC runs", [1000, 2000, 4000, 8000], value=2000)
+    max_stops = c4.slider("Max stops", 1, 3, 2)
+    n_runs = c5.select_slider("MC runs", [1000, 2000, 4000, 8000], value=2000)
     use_cliff = st.checkbox("Apply tyre-cliff prior", value=True,
                             help="Domain assumption: degradation accelerates past a per-compound age.")
+
+    if season >= 2026 and engine.deg_model_2026 is not None:
+        n26 = engine.deg_model_2026.meta.get("n_target_laps", 0)
+        st.info(f"🆕 **2026 mode** — new-regulation cars. Degradation blends {season} data "
+                f"(~{n26} laps so far) with the pre-2026 prior, shrinking toward 2026 as the "
+                f"season runs. Early-season numbers are necessarily uncertain.")
 
     info = engine.race_info(track)
     if not info["well_sampled"]:
@@ -107,7 +122,7 @@ def strategy_tab(engine: StrategyEngine) -> None:
 
     with st.spinner("Searching strategies..."):
         rec = engine.recommend(track, objective=objective, use_cliff=use_cliff,
-                               max_stops=max_stops, n_runs=n_runs)
+                               max_stops=max_stops, n_runs=n_runs, season=int(season))
     best = rec["best"]
     st.success(f"**{fmt_plan(best['compounds'], best['pit_laps'])}**  —  "
                f"expected **{clock(best['mean_s'])}**  ·  typical {clock(best['p50_s'])}  ·  "
@@ -131,7 +146,7 @@ def strategy_tab(engine: StrategyEngine) -> None:
                    "simulated races — lower means our pick is more clearly best.")
     with right:
         sim = engine.simulate(track, tuple(best["compounds"]), tuple(best["pit_laps"]),
-                              use_cliff=use_cliff, n_runs=max(n_runs, 4000))
+                              use_cliff=use_cliff, n_runs=max(n_runs, 4000), season=int(season))
         st.plotly_chart(dist_figure(sim), use_container_width=True)
         st.caption(f"P(safety car) = {sim['p_safety_car']:.0%} · "
                    f"spread (p90−p10) = {(sim['p90_s']-sim['p10_s']):.0f}s")
@@ -141,9 +156,9 @@ def strategy_tab(engine: StrategyEngine) -> None:
 def outcome_tab() -> None:
     loaded = load_outcome()
     if loaded is None:
-        st.warning("Results dataset not found — run `python -m f1se.standalone.results 2021 2022 2023 2024`.")
+        st.warning("Results dataset not found — run `python -m f1se.standalone.results 2023 2024 2025 2026`.")
         return
-    results, feats, model, test_year, champ = loaded
+    results, feats, model, test_year, champ, ongoing, done, full = loaded
     mtr = model.metrics
 
     st.markdown(f"#### Podium predictor — forward-tested on {test_year}")
@@ -165,7 +180,12 @@ def outcome_tab() -> None:
     st.dataframe(pred[["driver", "team", "grid", "podium prob", "actual"]],
                  use_container_width=True, hide_index=True)
 
-    st.markdown(f"#### Championship projection — {test_year} (Monte Carlo from prior form)")
+    if ongoing:
+        st.markdown(f"#### Championship projection — {test_year} (live, after {done} of {full} races)")
+        st.caption("Current points + the remaining races simulated, using **this season's** form "
+                   "(after a regulation reset, last year's order no longer applies).")
+    else:
+        st.markdown(f"#### Championship projection — {test_year} (Monte Carlo from prior form)")
     top = champ.head(8).iloc[::-1]
     fig = go.Figure(go.Bar(x=top["win_prob"] * 100, y=top["driver"], orientation="h",
                            marker_color="#e2231a",
@@ -205,7 +225,8 @@ def live_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
         return
     with st.spinner("Re-optimising from current state..."):
         rec = engine.recommend_live(track, state.current_lap, state.current_compound,
-                                    state.tyre_age, compounds_used=state.compounds_used, n_runs=2000)
+                                    state.tyre_age, compounds_used=state.compounds_used,
+                                    n_runs=2000, season=int(year))
     st.success(f"**Recommended from here:**  {rec['best_plan']}")
     st.caption(f"Compounds used so far: {', '.join(state.compounds_used)} · "
                f"evaluated {rec['n_evaluated']} remaining plans")
@@ -224,13 +245,14 @@ def main() -> None:
     st.caption("Not *who will win* — *what should the team do*. Pit strategy, outcomes, and "
                "live in-race calls, all with quantified uncertainty.")
     engine = load_engine()
+    dry = load_dry()
     t1, t2, t3 = st.tabs(["🏁 Strategy", "🏆 Outcome Predictor", "🔴 Live Race"])
     with t1:
-        strategy_tab(engine)
+        strategy_tab(engine, dry)
     with t2:
         outcome_tab()
     with t3:
-        live_tab(engine, load_dry())
+        live_tab(engine, dry)
 
 
 if __name__ == "__main__":

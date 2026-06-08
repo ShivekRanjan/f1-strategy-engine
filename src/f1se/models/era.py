@@ -46,6 +46,7 @@ def fit_era_shrunk_degradation(
     estimates from ``year >= target_min_year`` weighted by 2026 lap counts.
     Falls back to the plain prior if there is no target-era data yet.
     """
+    laps = laps.dropna(subset=[AGE_COL, TARGET_COL])
     prior_laps = laps[laps["year"] < target_min_year]
     target_laps = laps[laps["year"] >= target_min_year]
     prior = fit_linear_baseline(prior_laps, group_cols=group_cols, min_laps=min_laps)

@@ -5,7 +5,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from f1se.standalone.championship import predict_season, simulate_championship
+from f1se.standalone.championship import (
+    predict_season,
+    project_ongoing_season,
+    simulate_championship,
+)
 from f1se.standalone.podium import FEATURE_COLS, build_features, predict_race, train_podium_model
 
 
@@ -73,3 +77,19 @@ def test_predict_season_runs_end_to_end():
     out = predict_season(res, 2023, n_sims=1000)
     assert set(out["driver"]) <= set(res[res["year"] == 2023]["driver"])
     assert np.isclose(out["win_prob"].sum(), 1.0)
+
+
+def test_project_ongoing_season_uses_current_lead_and_form():
+    # Driver A wins the first 6 races -> big lead + strongest form -> runaway.
+    rows = []
+    for rnd in range(1, 7):
+        for pos, d in enumerate(["A", "B", "C", "D"], start=1):
+            rows.append({"year": 2026, "round": rnd, "event_name": f"R{rnd}",
+                         "driver": d, "team": d, "grid": float(pos), "position": float(pos),
+                         "points": float([25, 18, 15, 12][pos - 1]), "status": "Finished"})
+    res = pd.DataFrame(rows)
+    out = project_ongoing_season(res, 2026, total_races=12, n_sims=2000)
+    assert out.iloc[0]["driver"] == "A"
+    assert out.attrs["races_done"] == 6 and out.attrs["total_races"] == 12
+    assert np.isclose(out["win_prob"].sum(), 1.0)
+    assert (out[out["driver"] == "A"]["points_now"] == 150).all()  # 6 wins x 25

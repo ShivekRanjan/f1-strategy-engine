@@ -32,10 +32,13 @@ def driver_strengths(results: pd.DataFrame, *, before_year: int, window: int = 2
 
 
 def simulate_championship(
-    strengths: pd.Series, n_races: int, *, n_sims: int = 5000, seed: int = 0
+    strengths: pd.Series, n_races: int, *, starting_points: pd.Series | None = None,
+    n_sims: int = 5000, seed: int = 0,
 ) -> pd.DataFrame:
     """Monte Carlo title probabilities for the given field over ``n_races``.
 
+    ``starting_points`` (optional, per driver) seeds the standings — use it for an
+    in-season projection (points already scored + the remaining races simulated).
     Returns a frame (driver, win_prob, mean_points) sorted by win probability.
     """
     drivers = list(strengths.index)
@@ -43,7 +46,9 @@ def simulate_championship(
     n_drivers = len(drivers)
     rng = np.random.default_rng(seed)
 
-    totals = np.zeros((n_sims, n_drivers))
+    base = (starting_points.reindex(drivers).fillna(0.0).to_numpy(dtype=float)
+            if starting_points is not None else np.zeros(n_drivers))
+    totals = np.tile(base, (n_sims, 1)).astype(float)
     k = min(len(POINTS_TABLE), n_drivers)
     for _ in range(n_races):
         # Gumbel-max sampling of a finishing order ~ Plackett-Luce(strengths).
@@ -67,3 +72,27 @@ def predict_season(results: pd.DataFrame, season: int, *, n_sims: int = 5000, se
     strengths = strengths.reindex(field).fillna(0.5)
     n_races = int(results[results["year"] == season]["round"].nunique())
     return simulate_championship(strengths, n_races, n_sims=n_sims, seed=seed)
+
+
+def project_ongoing_season(
+    results: pd.DataFrame, season: int, *, total_races: int = 24,
+    n_sims: int = 5000, seed: int = 0,
+) -> pd.DataFrame:
+    """Mid-season title projection: current points + simulate the remaining races.
+
+    Strengths come from *this season's* form so far (crucial after a regulation
+    reset, when last season's order no longer applies). Returns (driver, win_prob,
+    mean_points) plus the current standings, with ``races_done`` in ``.attrs``.
+    """
+    sr = results[results["year"] == season]
+    done = int(sr["round"].nunique())
+    field = sorted(sr["driver"].dropna().unique())
+    current = sr.groupby("driver", observed=True)["points"].sum().reindex(field).fillna(0.0)
+    strengths = (sr.groupby("driver", observed=True)["points"].mean() + 0.5).reindex(field).fillna(0.5)
+    remaining = max(total_races - done, 0)
+    out = simulate_championship(strengths, remaining, starting_points=current,
+                                n_sims=n_sims, seed=seed)
+    out = out.merge(current.rename("points_now").reset_index(), on="driver", how="left")
+    out.attrs["races_done"] = done
+    out.attrs["total_races"] = total_races
+    return out
