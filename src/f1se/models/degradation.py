@@ -108,7 +108,9 @@ def fit_linear_baseline(
         if col not in laps.columns:
             raise ValueError(f"degradation fit needs column '{col}'")
 
-    laps = laps.copy()
+    # Drop laps with missing tyre age or pace (occasional FastF1 glitches) —
+    # a NaN there would poison the fixed-effects demeaning for the whole group.
+    laps = laps.dropna(subset=[AGE_COL, TARGET_COL]).copy()
     age_dm, corr_dm = _stint_demeaned(laps)
     laps["_age_dm"], laps["_corr_dm"] = age_dm, corr_dm
 

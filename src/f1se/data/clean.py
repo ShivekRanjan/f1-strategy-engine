@@ -102,6 +102,11 @@ def filter_racing_laps(
     """
     mask = df["lap_time_s"].notna() & (df["lap_time_s"] > 0)
 
+    # A lap with no recorded tyre age can't inform degradation (occasional
+    # FastF1 glitch) — drop it.
+    if "tyre_life" in df.columns:
+        mask &= df["tyre_life"].notna()
+
     if drop_pit_laps:
         mask &= ~df["is_pit_out_lap"].fillna(False)
         mask &= ~df["is_pit_in_lap"].fillna(False)
