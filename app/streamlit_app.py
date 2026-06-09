@@ -101,7 +101,9 @@ def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
                          index=tracks.index("Spanish Grand Prix") if "Spanish Grand Prix" in tracks else 0,
                          key="s_track")
     years = sorted(laps[laps["event_name"] == track]["year"].unique())
-    season = c2.selectbox("Season", years, index=len(years) - 1, key="s_season",
+    # Key depends on the track so Season resets to the circuit's latest season
+    # (e.g. 2026 for a 2026 circuit) instead of stickily keeping a prior value.
+    season = c2.selectbox("Season", years, index=len(years) - 1, key=f"s_season_{track}",
                           format_func=lambda y: f"{y}  (new regs)" if y >= 2026 else str(y))
     objective = c3.selectbox("Objective", ["mean", "median", "p85"], key="s_obj",
                              format_func={"mean": "Minimise expected time",
@@ -211,17 +213,17 @@ def live_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
                          key="l_track")
     ev = laps[laps["event_name"] == track]
     seasons = sorted(ev["year"].unique())
-    year = c2.selectbox("Season", seasons, index=len(seasons) - 1, key="l_season")
+    year = c2.selectbox("Season", seasons, index=len(seasons) - 1, key=f"l_season_{track}")
     race = ev[ev["year"] == year]
     drivers = sorted(race["driver"].dropna().unique())
     driver = c3.selectbox("Driver", drivers, index=drivers.index("VER") if "VER" in drivers else 0,
-                          key="l_driver")
+                          key=f"l_driver_{track}_{year}")
 
     dl = race[race["driver"] == driver]
     total_laps = engine.total_laps_by_track.get(track, int(ev["lap_number"].max()))
     lo, hi = int(dl["lap_number"].min()), int(dl["lap_number"].max())
     cur = st.slider("Current lap (drag to 'play' the race)", lo, hi, min(hi, max(2, hi // 3)),
-                    key="l_lap")
+                    key=f"l_lap_{track}_{year}_{driver}")
 
     state = state_from_laps(dl[dl["lap_number"] <= cur], total_laps)
     a, b, c, d = st.columns(4)
