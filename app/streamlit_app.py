@@ -92,17 +92,18 @@ def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
     tracks = engine.tracks()
     c1, c2, c3, c4, c5 = st.columns([3, 2, 3, 2, 2])
     track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t),
-                         index=tracks.index("Spanish Grand Prix") if "Spanish Grand Prix" in tracks else 0)
+                         index=tracks.index("Spanish Grand Prix") if "Spanish Grand Prix" in tracks else 0,
+                         key="s_track")
     years = sorted(laps[laps["event_name"] == track]["year"].unique())
-    season = c2.selectbox("Season", years, index=len(years) - 1,
+    season = c2.selectbox("Season", years, index=len(years) - 1, key="s_season",
                           format_func=lambda y: f"{y}  (new regs)" if y >= 2026 else str(y))
-    objective = c3.selectbox("Objective", ["mean", "median", "p85"],
+    objective = c3.selectbox("Objective", ["mean", "median", "p85"], key="s_obj",
                              format_func={"mean": "Minimise expected time",
                                           "median": "Minimise median time",
                                           "p85": "Risk-averse (85th pct)"}.get)
-    max_stops = c4.slider("Max stops", 1, 3, 2)
-    n_runs = c5.select_slider("MC runs", [1000, 2000, 4000, 8000], value=2000)
-    use_cliff = st.checkbox("Apply tyre-cliff prior", value=True,
+    max_stops = c4.slider("Max stops", 1, 3, 2, key="s_stops")
+    n_runs = c5.select_slider("MC runs", [1000, 2000, 4000, 8000], value=2000, key="s_runs")
+    use_cliff = st.checkbox("Apply tyre-cliff prior", value=True, key="s_cliff",
                             help="Domain assumption: degradation accelerates past a per-compound age.")
 
     if season >= 2026 and engine.deg_model_2026 is not None:
@@ -170,7 +171,7 @@ def outcome_tab() -> None:
 
     test = feats[feats["year"] == test_year]
     rounds = sorted(test["round"].unique())
-    rnd = st.select_slider(f"{test_year} round", rounds, value=rounds[0])
+    rnd = st.select_slider(f"{test_year} round", rounds, value=rounds[0], key="o_round")
     race = test[test["round"] == rnd]
     pred = predict_race(model, race).head(8).copy()
     podium = set(race[race["podium"] == 1]["driver"])
@@ -198,20 +199,22 @@ def outcome_tab() -> None:
 def live_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
     tracks = engine.tracks()
     c1, c2, c3 = st.columns(3)
-    track = c1.selectbox("Circuit ", tracks, format_func=lambda t: track_label(engine, t),
+    track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t),
                          index=tracks.index("Spanish Grand Prix") if "Spanish Grand Prix" in tracks else 0,
-                         key="live_track")
+                         key="l_track")
     ev = laps[laps["event_name"] == track]
     seasons = sorted(ev["year"].unique())
-    year = c2.selectbox("Season", seasons, index=len(seasons) - 1)
+    year = c2.selectbox("Season", seasons, index=len(seasons) - 1, key="l_season")
     race = ev[ev["year"] == year]
     drivers = sorted(race["driver"].dropna().unique())
-    driver = c3.selectbox("Driver", drivers, index=drivers.index("VER") if "VER" in drivers else 0)
+    driver = c3.selectbox("Driver", drivers, index=drivers.index("VER") if "VER" in drivers else 0,
+                          key="l_driver")
 
     dl = race[race["driver"] == driver]
     total_laps = engine.total_laps_by_track.get(track, int(ev["lap_number"].max()))
     lo, hi = int(dl["lap_number"].min()), int(dl["lap_number"].max())
-    cur = st.slider("Current lap (drag to 'play' the race)", lo, hi, min(hi, max(2, hi // 3)))
+    cur = st.slider("Current lap (drag to 'play' the race)", lo, hi, min(hi, max(2, hi // 3)),
+                    key="l_lap")
 
     state = state_from_laps(dl[dl["lap_number"] <= cur], total_laps)
     a, b, c, d = st.columns(4)
