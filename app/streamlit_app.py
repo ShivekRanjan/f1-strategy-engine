@@ -90,6 +90,16 @@ def track_label(engine, t: str, tracks_2026=frozenset()) -> str:
     return t + tag
 
 
+def default_track_index(tracks: list[str], tracks_2026) -> int:
+    """Default to a 2026 circuit (so 2026 mode shows on load), else Spain, else 0."""
+    for pref in ["Japanese Grand Prix", "Miami Grand Prix", "Monaco Grand Prix"]:
+        if pref in tracks_2026 and pref in tracks:
+            return tracks.index(pref)
+    if "Spanish Grand Prix" in tracks:
+        return tracks.index("Spanish Grand Prix")
+    return 0
+
+
 # --- Tab 1: Strategy --------------------------------------------------------
 def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
     tracks = engine.tracks()
@@ -98,8 +108,7 @@ def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
                f"— pick one and set Season to 2026 to see new-regs mode.")
     c1, c2, c3, c4, c5 = st.columns([3, 2, 3, 2, 2])
     track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t, tracks_2026),
-                         index=tracks.index("Spanish Grand Prix") if "Spanish Grand Prix" in tracks else 0,
-                         key="s_track")
+                         index=default_track_index(tracks, tracks_2026), key="s_track")
     years = sorted(laps[laps["event_name"] == track]["year"].unique())
     # Key depends on the track so Season resets to the circuit's latest season
     # (e.g. 2026 for a 2026 circuit) instead of stickily keeping a prior value.
@@ -209,8 +218,7 @@ def live_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
     tracks_2026 = frozenset(laps[laps["year"] >= 2026]["event_name"].unique())
     c1, c2, c3 = st.columns(3)
     track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t, tracks_2026),
-                         index=tracks.index("Spanish Grand Prix") if "Spanish Grand Prix" in tracks else 0,
-                         key="l_track")
+                         index=default_track_index(tracks, tracks_2026), key="l_track")
     ev = laps[laps["event_name"] == track]
     seasons = sorted(ev["year"].unique())
     year = c2.selectbox("Season", seasons, index=len(seasons) - 1, key=f"l_season_{track}")
