@@ -83,15 +83,21 @@ def dist_figure(sim: dict) -> go.Figure:
     return fig
 
 
-def track_label(engine, t: str) -> str:
-    return t if engine.is_well_sampled(t) else f"{t}  ⚠ limited data"
+def track_label(engine, t: str, tracks_2026=frozenset()) -> str:
+    tag = "  🆕 2026" if t in tracks_2026 else ""
+    if not engine.is_well_sampled(t):
+        tag += "  ⚠ limited data"
+    return t + tag
 
 
 # --- Tab 1: Strategy --------------------------------------------------------
 def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
     tracks = engine.tracks()
+    tracks_2026 = frozenset(laps[laps["year"] >= 2026]["event_name"].unique())
+    st.caption(f"🆕 Circuits already raced under 2026 regs: **{', '.join(sorted(tracks_2026))}** "
+               f"— pick one and set Season to 2026 to see new-regs mode.")
     c1, c2, c3, c4, c5 = st.columns([3, 2, 3, 2, 2])
-    track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t),
+    track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t, tracks_2026),
                          index=tracks.index("Spanish Grand Prix") if "Spanish Grand Prix" in tracks else 0,
                          key="s_track")
     years = sorted(laps[laps["event_name"] == track]["year"].unique())
@@ -198,8 +204,9 @@ def outcome_tab() -> None:
 # --- Tab 3: Live race -------------------------------------------------------
 def live_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
     tracks = engine.tracks()
+    tracks_2026 = frozenset(laps[laps["year"] >= 2026]["event_name"].unique())
     c1, c2, c3 = st.columns(3)
-    track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t),
+    track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t, tracks_2026),
                          index=tracks.index("Spanish Grand Prix") if "Spanish Grand Prix" in tracks else 0,
                          key="l_track")
     ev = laps[laps["event_name"] == track]
