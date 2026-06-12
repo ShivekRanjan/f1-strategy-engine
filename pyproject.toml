@@ -39,6 +39,7 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.6",
     "mypy>=1.11",
+    "httpx>=0.27",  # required by fastapi.testclient (API tests)
 ]
 
 [tool.setuptools.packages.find]
