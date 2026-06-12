@@ -67,7 +67,7 @@ class StrategyEngine:
         return candidates[-1]  # let the subsequent read raise a clear error
 
     @classmethod
-    def from_processed(cls, data_dir=None) -> "StrategyEngine":
+    def from_processed(cls, data_dir=None) -> StrategyEngine:
         """Build from the processed parquet datasets (degradation + calibrations)."""
         data_dir = cls._resolve_data_dir(data_dir)
         dry = pd.read_parquet(data_dir / "dry_laps.parquet")

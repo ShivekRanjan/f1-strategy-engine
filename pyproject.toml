@@ -55,9 +55,16 @@ addopts = "-m 'not network'"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Analysis scripts are exploratory by nature; lint the package, tests, and app.
+extend-exclude = ["notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    "E501",  # long lines: mostly UI strings/docstrings; readability > hard wrap
+    "B008",  # function call in default arg: FastAPI's Depends(...) idiom
+    "B905",  # zip without strict=: same-length zips throughout; noise
+]
 
 [tool.mypy]
 python_version = "3.12"

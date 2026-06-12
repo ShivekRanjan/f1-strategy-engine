@@ -7,7 +7,6 @@ import pytest
 
 from f1se.sim.optimize import enumerate_strategies, recommend_strategy
 from f1se.sim.safety_car import SafetyCarModel
-from f1se.sim.simulate import Strategy
 
 
 def _pace(compound, tyre_age, lap):

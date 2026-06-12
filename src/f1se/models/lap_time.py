@@ -14,13 +14,13 @@ from __future__ import annotations
 import pandas as pd
 
 
-def fit_sequence_model(laps: pd.DataFrame, **kwargs) -> "LapTimeModel":  # noqa: F821
+def fit_sequence_model(laps: pd.DataFrame, **kwargs) -> LapTimeModel:  # noqa: F821
     """Train the sequence lap-time model. TODO Phase 2.5."""
     raise NotImplementedError("Phase 2.5: sequence lap-time model")
 
 
 def predict_lap_times(
-    model: "LapTimeModel",  # noqa: F821
+    model: LapTimeModel,  # noqa: F821
     history: pd.DataFrame,
     horizon: int = 1,
 ) -> pd.Series:

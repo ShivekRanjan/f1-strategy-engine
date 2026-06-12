@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pandas as pd
-
 from f1se.data.loader import LAP_SCHEMA, SessionRef, tidy_laps
 
 REF = SessionRef(year=2023, round=1, event_name="Test GP", session="R")

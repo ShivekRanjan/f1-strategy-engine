@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
-
 import pandas as pd
+import pytest
 
 from f1se.sim.safety_car import (
     SafetyCarModel,
@@ -70,7 +69,7 @@ def test_extra_stop_adds_one_pit_loss():
 
 def _deg_delta(one, two):
     # Degradation-time difference between the two plans (deterministic).
-    p1 = stint_plan(one, 50); p2 = stint_plan(two, 50)
+    p1, p2 = stint_plan(one, 50), stint_plan(two, 50)
     g1 = sum(_pace(c, a, i + 1) for i, (c, a, _) in enumerate(p1))
     g2 = sum(_pace(c, a, i + 1) for i, (c, a, _) in enumerate(p2))
     return g2 - g1
@@ -104,7 +103,7 @@ def test_sc_mask_shape_and_rate():
 def _race_status(year, rnd, n_laps, sc_laps, n_cars=4):
     """Synthetic per-driver-lap track status: '4' on sc_laps, '1' otherwise."""
     rows = []
-    for d in range(n_cars):
+    for _car in range(n_cars):
         for lap in range(1, n_laps + 1):
             rows.append({"year": year, "round": rnd, "lap_number": lap,
                          "track_status": "4" if lap in sc_laps else "1"})
@@ -143,7 +142,8 @@ def test_per_track_calibration_shrinks_toward_global():
              _race_status(2023, 2, 50, sc_laps={20, 21}),
              _race_status(2024, 1, 50, sc_laps={5, 6, 7})]  # event R1 = SC-prone
     races[0]["event_name"] = races[1]["event_name"] = races[2]["event_name"] = "Chaos GP"
-    calm = _race_status(2023, 3, 50, sc_laps=set()); calm["event_name"] = "Calm GP"
+    calm = _race_status(2023, 3, 50, sc_laps=set())
+    calm["event_name"] = "Calm GP"
     status = pd.concat(races + [calm], ignore_index=True)
 
     models = calibrate_per_track(status, shrinkage_laps=150.0)

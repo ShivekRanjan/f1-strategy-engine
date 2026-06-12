@@ -48,7 +48,7 @@ class CliffPrior:
     power: float = 2.0
 
     @classmethod
-    def disabled(cls) -> "CliffPrior":
+    def disabled(cls) -> CliffPrior:
         """A no-op prior (no cliff) — recovers the pure data-fitted model."""
         return cls(cliff_age={}, rate=0.0)
 

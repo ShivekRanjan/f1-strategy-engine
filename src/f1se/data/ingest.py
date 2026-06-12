@@ -13,7 +13,6 @@ raw API responses, so even a fresh parse is cheap the second time.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import pandas as pd
 

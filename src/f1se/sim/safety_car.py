@@ -43,7 +43,7 @@ class SafetyCarModel:
         return cls(prob_per_lap=sc_periods_per_race / total_laps, mean_duration=mean_duration)
 
     @classmethod
-    def from_track_status(cls, status: pd.DataFrame) -> "SafetyCarModel":
+    def from_track_status(cls, status: pd.DataFrame) -> SafetyCarModel:
         """Calibrate the hazard from observed per-lap ``track_status`` data.
 
         ``status`` needs columns ``year, round, lap_number, track_status`` (one
