@@ -10,7 +10,7 @@ comparison as the full-race optimiser.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from itertools import combinations, product
 
 import numpy as np

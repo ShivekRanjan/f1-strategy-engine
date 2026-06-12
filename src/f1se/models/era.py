@@ -18,7 +18,6 @@ degradation) are shrunk; pit loss / safety-car / fuel transfer and use all data.
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 from f1se.models.degradation import (

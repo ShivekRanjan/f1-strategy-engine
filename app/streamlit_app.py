@@ -36,6 +36,22 @@ def load_dry() -> pd.DataFrame:
     return pd.read_parquet(PROC / "dry_laps.parquet")
 
 
+@st.cache_data(show_spinner=False)
+def cached_recommend(track: str, objective: str, use_cliff: bool, max_stops: int,
+                     n_runs: int, season: int) -> dict:
+    """Memoise recommendations — repeat clicks with the same settings are instant
+    (matters on free-tier CPU, where a fresh search takes a few seconds)."""
+    return load_engine().recommend(track, objective=objective, use_cliff=use_cliff,
+                                   max_stops=max_stops, n_runs=n_runs, season=season)
+
+
+@st.cache_data(show_spinner=False)
+def cached_simulate(track: str, compounds: tuple, pit_laps: tuple, use_cliff: bool,
+                    n_runs: int, season: int) -> dict:
+    return load_engine().simulate(track, compounds, pit_laps, use_cliff=use_cliff,
+                                  n_runs=n_runs, season=season)
+
+
 @st.cache_resource
 def load_outcome():
     fp = PROC / "results.parquet"
@@ -106,7 +122,7 @@ def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
     tracks_2026 = frozenset(laps[laps["year"] >= 2026]["event_name"].unique())
     st.caption(f"🆕 Circuits already raced under 2026 regs: **{', '.join(sorted(tracks_2026))}** "
                f"— pick one and set Season to 2026 to see new-regs mode.")
-    c1, c2, c3, c4, c5 = st.columns([3, 2, 3, 2, 2])
+    c1, c2, c3, c4 = st.columns([3, 2, 3, 2])
     track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t, tracks_2026),
                          index=default_track_index(tracks, tracks_2026), key="s_track")
     years = sorted(laps[laps["event_name"] == track]["year"].unique())
@@ -119,9 +135,11 @@ def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
                                           "median": "Minimise median time",
                                           "p85": "Risk-averse (85th pct)"}.get)
     max_stops = c4.slider("Max stops", 1, 3, 2, key="s_stops")
-    n_runs = c5.select_slider("MC runs", [1000, 2000, 4000, 8000], value=2000, key="s_runs")
-    use_cliff = st.checkbox("Apply tyre-cliff prior", value=True, key="s_cliff",
-                            help="Domain assumption: degradation accelerates past a per-compound age.")
+    with st.expander("Advanced settings"):
+        n_runs = st.select_slider("Monte Carlo runs", [1000, 2000, 4000, 8000], value=2000,
+                                  key="s_runs", help="More runs = smoother estimates, slower search.")
+        use_cliff = st.checkbox("Apply tyre-cliff prior", value=True, key="s_cliff",
+                                help="Domain assumption: degradation accelerates past a per-compound age.")
 
     if season >= 2026 and engine.deg_model_2026 is not None:
         n26 = engine.deg_model_2026.meta.get("n_target_laps", 0)
@@ -139,32 +157,44 @@ def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
     m3.metric("Pit loss", f"{info['pit_loss_s']:.1f} s")
 
     with st.spinner("Searching strategies..."):
-        rec = engine.recommend(track, objective=objective, use_cliff=use_cliff,
-                               max_stops=max_stops, n_runs=n_runs, season=int(season))
+        rec = cached_recommend(track, objective, use_cliff, max_stops, n_runs, int(season))
     best = rec["best"]
     st.success(f"**{fmt_plan(best['compounds'], best['pit_laps'])}**  —  "
                f"expected **{clock(best['mean_s'])}**  ·  typical {clock(best['p50_s'])}  ·  "
                f"bad luck {clock(best['p90_s'])}")
     st.caption(f"Searched {rec['n_evaluated']} strategies · objective: {objective}")
 
+    # One-line takeaway: is the pick clear-cut, or are the top plans near-tied?
+    df = pd.DataFrame(rec["shortlist"])
+    df["plan"] = [fmt_plan(c, p) for c, p in zip(df["compounds"], df["pit_laps"])]
+    df["expected"] = df["mean_s"].map(clock)
+    df["typical"] = df["p50_s"].map(clock)
+    df["bad luck"] = df["p90_s"].map(clock)
+    df["how it compares"] = [beats_pick(r, p) for r, p in zip(df["rank"], df["win_prob_vs_best"])]
+    show_cols = ["rank", "plan", "expected", "typical", "bad luck", "how it compares"]
+    if len(df) > 1:
+        runner_up_wins = float(df.iloc[1]["win_prob_vs_best"])
+        spread = float(df["mean_s"].max() - df["mean_s"].min())
+        if runner_up_wins >= 0.30:
+            st.info(f"ℹ️ The top plans are near-tied (all within ~{spread:.0f}s) — the call is "
+                    "robust to plan details; safety-car timing matters more than which you pick.")
+        else:
+            st.info(f"ℹ️ The pick is clear-cut — the runner-up wins only "
+                    f"{runner_up_wins*100:.0f}% of simulated races.")
+
     left, right = st.columns([3, 2])
     with left:
-        st.markdown("**Other strategies we considered**")
-        df = pd.DataFrame(rec["shortlist"])
-        df["plan"] = [fmt_plan(c, p) for c, p in zip(df["compounds"], df["pit_laps"])]
-        df["expected"] = df["mean_s"].map(clock)
-        df["typical"] = df["p50_s"].map(clock)
-        df["bad luck"] = df["p90_s"].map(clock)
-        df["how it compares"] = [beats_pick(r, p) for r, p in zip(df["rank"], df["win_prob_vs_best"])]
-        st.dataframe(df[["rank", "plan", "expected", "typical", "bad luck", "how it compares"]]
-                     .set_index("rank"), use_container_width=True)
-        st.caption("**expected** = average race time · **typical** = middle outcome · "
-                   "**bad luck** = a rough race (worst ~10%). **'how it compares'** = how often "
-                   "that plan would actually finish ahead of our pick across thousands of "
-                   "simulated races — lower means our pick is more clearly best.")
+        st.markdown("**Closest alternatives**")
+        st.dataframe(df.head(3)[show_cols].set_index("rank"), use_container_width=True)
+        with st.expander(f"All {len(df)} shortlisted plans + column guide"):
+            st.dataframe(df[show_cols].set_index("rank"), use_container_width=True)
+            st.caption("**expected** = average race time · **typical** = middle outcome · "
+                       "**bad luck** = a rough race (worst ~10%). **'how it compares'** = how often "
+                       "that plan would actually finish ahead of our pick across thousands of "
+                       "simulated races — lower means our pick is more clearly best.")
     with right:
-        sim = engine.simulate(track, tuple(best["compounds"]), tuple(best["pit_laps"]),
-                              use_cliff=use_cliff, n_runs=max(n_runs, 4000), season=int(season))
+        sim = cached_simulate(track, tuple(best["compounds"]), tuple(best["pit_laps"]),
+                              use_cliff, max(n_runs, 4000), int(season))
         st.plotly_chart(dist_figure(sim), use_container_width=True)
         st.caption(f"P(safety car) = {sim['p_safety_car']:.0%} · "
                    f"spread (p90−p10) = {(sim['p90_s']-sim['p10_s']):.0f}s")

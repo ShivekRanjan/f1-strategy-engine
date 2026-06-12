@@ -70,7 +70,7 @@ def race_info(track: str, engine: StrategyEngine = Depends(get_engine)) -> dict:
     try:
         return engine.race_info(track)
     except KeyError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @app.post("/recommend")
@@ -81,9 +81,9 @@ def recommend(req: RecommendRequest, engine: StrategyEngine = Depends(get_engine
             max_stops=req.max_stops, n_runs=req.n_runs, top_k=req.top_k,
         )
     except KeyError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.post("/recommend_live")
@@ -95,9 +95,9 @@ def recommend_live(req: LiveRequest, engine: StrategyEngine = Depends(get_engine
             use_cliff=req.use_cliff, n_runs=req.n_runs,
         )
     except KeyError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.post("/simulate")
@@ -108,6 +108,6 @@ def simulate(req: SimulateRequest, engine: StrategyEngine = Depends(get_engine))
             use_cliff=req.use_cliff, n_runs=req.n_runs,
         )
     except KeyError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
