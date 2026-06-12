@@ -93,3 +93,26 @@ def test_project_ongoing_season_uses_current_lead_and_form():
     assert out.attrs["races_done"] == 6 and out.attrs["total_races"] == 12
     assert np.isclose(out["win_prob"].sum(), 1.0)
     assert (out[out["driver"] == "A"]["points_now"] == 150).all()  # 6 wins x 25
+
+
+def test_ongoing_projection_not_overconfident_with_mixed_form():
+    # A narrowly leads B with VARIABLE results. Six races of evidence must not
+    # produce a ~100% title call: bootstrapped strength uncertainty keeps the
+    # rival's chances alive (the 'leader at 100% after 6 rounds' bug).
+    pts = {1: 25.0, 2: 18.0, 3: 15.0, 4: 12.0}
+    a_pos = [1, 1, 2, 1, 2, 1]   # 136 pts
+    b_pos = [2, 2, 1, 2, 1, 2]   # 122 pts
+    rows = []
+    for rnd in range(1, 7):
+        order = {"A": a_pos[rnd - 1], "B": b_pos[rnd - 1]}
+        rest = [p for p in (1, 2, 3, 4) if p not in order.values()]
+        order["C"], order["D"] = rest
+        for d, pos in order.items():
+            rows.append({"year": 2026, "round": rnd, "event_name": f"R{rnd}",
+                         "driver": d, "team": d, "grid": float(pos),
+                         "position": float(pos), "points": pts[pos], "status": "Finished"})
+    out = project_ongoing_season(pd.DataFrame(rows), 2026, total_races=24, n_sims=3000)
+    p = out.set_index("driver")["win_prob"]
+    assert p["A"] > p["B"]          # the leader is still favoured...
+    assert p["A"] < 0.97            # ...but it is NOT a certainty
+    assert p["B"] > 0.01            # and the rival keeps a real chance
