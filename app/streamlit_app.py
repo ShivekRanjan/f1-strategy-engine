@@ -153,7 +153,11 @@ def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
                    "so its predictions are rougher (still realistic).")
     m1, m2, m3 = st.columns(3)
     m1.metric("Race distance", f"{info['total_laps']} laps")
-    m2.metric("Safety-car risk", f"{info['sc_prob_per_lap']*info['total_laps']*100:.0f}% / race")
+    # P(>=1 SC) — matches the simulator's reported p_safety_car, unlike the raw
+    # expected-count (hazard x laps), which overstates and confused the two.
+    p_any_sc = 1 - (1 - info["sc_prob_per_lap"]) ** info["total_laps"]
+    m2.metric("Safety-car chance", f"{p_any_sc*100:.0f}%",
+              help="Probability of at least one safety car this race (calibrated per circuit).")
     m3.metric("Pit loss", f"{info['pit_loss_s']:.1f} s")
 
     with st.spinner("Searching strategies..."):
@@ -211,10 +215,14 @@ def outcome_tab() -> None:
 
     st.markdown(f"#### Podium predictor — forward-tested on {test_year}")
     c1, c2, c3 = st.columns(3)
-    c1.metric("ROC-AUC", f"{mtr['auc']:.3f}")
+    c1.metric("ROC-AUC", f"{mtr['auc']:.3f}",
+              help="How well the model ranks podium vs non-podium drivers (1.0 = perfect).")
     c2.metric("Model precision@3", f"{mtr['model_precision_at_3']:.0%}")
-    c3.metric("Grid-baseline precision@3", f"{mtr['grid_baseline_precision_at_3']:.0%}",
-              delta=f"{(mtr['model_precision_at_3']-mtr['grid_baseline_precision_at_3'])*100:+.0f} pts")
+    c3.metric("Grid-baseline precision@3", f"{mtr['grid_baseline_precision_at_3']:.0%}")
+    if ongoing:
+        st.caption(f"⚠ Small test set — only {done} {test_year} races so far, so precision@3 is "
+                   "noisy. Grid position is itself the strongest podium signal; the model's value "
+                   "is the *calibrated probability* per driver, not reshuffling the grid's top 3.")
 
     test = feats[feats["year"] == test_year]
     rounds = sorted(test["round"].unique())
@@ -231,13 +239,19 @@ def outcome_tab() -> None:
     if ongoing:
         st.markdown(f"#### Championship projection — {test_year} (live, after {done} of {full} races)")
         st.caption("Current points + the remaining races simulated, using **this season's** form "
-                   "(after a regulation reset, last year's order no longer applies).")
+                   "(after a regulation reset, last year's order no longer applies). Each "
+                   "simulation bootstraps driver strength from the few races so far, so the "
+                   "odds honestly reflect how little evidence the season has produced yet.")
     else:
         st.markdown(f"#### Championship projection — {test_year} (Monte Carlo from prior form)")
     top = champ.head(8).iloc[::-1]
+
+    def _pct(p: float) -> str:  # don't round a real 0.4% chance down to "0%"
+        return f"{p*100:.0f}%" if p >= 0.10 or p == 0 else f"{p*100:.1f}%"
+
     fig = go.Figure(go.Bar(x=top["win_prob"] * 100, y=top["driver"], orientation="h",
                            marker_color="#e2231a",
-                           text=[f"{p*100:.0f}%" for p in top["win_prob"]], textposition="outside"))
+                           text=[_pct(p) for p in top["win_prob"]], textposition="outside"))
     fig.update_layout(xaxis_title="Title probability (%)", height=340, margin=dict(t=10, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
