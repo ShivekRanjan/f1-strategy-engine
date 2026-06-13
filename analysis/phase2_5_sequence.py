@@ -27,9 +27,11 @@ from f1se.config import PROJECT_ROOT
 from f1se.models.lap_time import (
     build_sequence_windows,
     fit_sequence_model,
+    train_and_export,
 )
 
 DATA = PROJECT_ROOT / "data" / "processed" / "dry_laps.parquet"
+ARTIFACT = PROJECT_ROOT / "data" / "processed" / "lstm_nextlap.npz"
 FIG_DIR = Path(__file__).parent / "figures"
 WINDOW = 5
 SEED = 0
@@ -127,6 +129,13 @@ def main() -> None:
     else:
         print("\nVerdict: the sequence model does NOT beat persistence here — within-stint "
               "lap times are near-random-walk; the simpler predictor wins (Occam). Honest either way.")
+
+    # Export the deployed nowcaster: trained on ALL seasons (the delta target
+    # transfers across the 2026 reset), serialised torch-free for the app.
+    print("\nTraining deploy model on all seasons and exporting...")
+    train_and_export(laps, ARTIFACT, epochs=40, hidden=32, seed=SEED)
+    print(f"Artifact saved: {ARTIFACT} ({ARTIFACT.stat().st_size / 1024:.1f} KB) "
+          "- the app loads this via NumpyLapForecaster (no torch needed).")
 
 
 if __name__ == "__main__":
