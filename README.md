@@ -13,19 +13,21 @@ season**, modelled across the regulation reset.
 <!-- TODO: replace with assets/demo.gif (Live Race tab, lap slider) once recorded -->
 ![F1 Strategy Engine](assets/hero.png)
 
-**[▶ Try the live app](https://f1-all-eye-u98rbzxhkgp8yu6wu9jxuq.streamlit.app)** — three tabs:
+**[▶ Try the live app](https://f1-all-eye-u98rbzxhkgp8yu6wu9jxuq.streamlit.app)** — four tabs:
 
 | Tab | What it does |
 |---|---|
 | 🏁 **Strategy** | Searches ~1,000+ pit strategies per race via Monte Carlo (stochastic safety cars, calibrated per circuit) and recommends the best plan — with the honest spread: *typical* race vs *bad-luck* race, and whether the call is clear-cut or a coin-flip |
+| 🆚 **Undercut** | The two-car question: with a rival *N* seconds ahead, should you pit now to undercut or hold and cover? Models the cumulative-time crossover and returns the verdict with how many seconds it gains |
 | 🏆 **Outcome Predictor** | Podium probabilities (forward-tested, never a shuffled split) + a live championship projection that **bootstraps driver-strength uncertainty** so a 6-race leader doesn't show a dishonest 100% |
 | 🔴 **Live Race** | Replays any race lap-by-lap and **re-optimises the remaining strategy from the current state** each lap — the same engine call a live-timing feed drives on race day |
 
-## Three models I built, rejected, and kept the receipts for
+## The models I built, tested, and kept the receipts for
 
 Every number in this engine was either calibrated from data or explicitly
-labelled as an assumption — and the models that *didn't* earn their place are
-documented, not deleted:
+labelled as an assumption. Sophisticated models were adopted **only when they
+beat a simpler baseline on a leakage-safe split** — most didn't, and those are
+documented rather than deleted; one did, and it's here too:
 
 | Finding | Evidence |
 |---|---|
@@ -34,6 +36,7 @@ documented, not deleted:
 | **The 0.03 s/kg fuel assumption survived calibration** — backing an effective coefficient out of 43 races' pace trends gives a median of 0.031 | per-race implied-β distribution |
 | **Validation is leakage-safe by construction** — laps within a race are near-duplicates, so splits are GroupKFold-by-race plus a forward-in-time holdout; a shuffled split would inflate every score | `f1se/validation.py`, tested |
 | **2026's regulation reset breaks old models** — a pre-2026 degradation model barely beats "no degradation" on 2026 laps (+3%); blending 2026 data with the old prior via shrinkage recovers the signal (+16%) | `analysis/phase_2026_validation.py` |
+| **An LSTM *did* earn its place** — for next-lap pace forecasting it beats persistence by ~9% (0.305 vs 0.335s MAE on held-out 2025) by damping per-lap noise and anticipating tyre warm-up. The one case where complexity won, on the same footing | `analysis/phase2_5_sequence.py` |
 
 Full receipts — figures, numbers, and how to reproduce each one — in
 **[docs/METHODOLOGY.md](docs/METHODOLOGY.md)**.
@@ -41,8 +44,8 @@ Full receipts — figures, numbers, and how to reproduce each one — in
 ## How it works
 
 ```
-FastF1 ──▶ data (load, clean, fuel-correct) ──▶ models (degradation, era-shrinkage, cliff prior)
-                                                       │
+FastF1 ──▶ data (load, clean, fuel-correct) ──▶ models (degradation, era-shrinkage, cliff prior,
+                                                       │         LSTM next-lap forecaster)
         calibrations (safety-car hazard, pit loss) ──▶ sim (Monte Carlo, optimiser, in-race)
                                                        │
                                           engine.StrategyEngine (orchestration)
@@ -60,7 +63,8 @@ over one `StrategyEngine`. Per-circuit safety-car risk and pit loss are
 ```bash
 py -3.12 -m venv .venv && .venv\Scripts\Activate.ps1   # (or python3.12 -m venv on unix)
 pip install -e ".[app,dev]"
-pytest                                   # 89 no-network tests
+pytest                                   # 99 no-network tests
+pip install -e ".[models]"               # adds torch etc. for the LSTM chapter (heavy, optional)
 streamlit run app/streamlit_app.py       # the committed ~1.5 MB datasets make it run instantly
 uvicorn f1se.api:app --reload            # REST API at /docs
 ```

@@ -18,8 +18,9 @@ jobs:
           cache: pip
 
       # App + dev extras cover everything the no-network suite needs
-      # (sklearn/xgboost for the model tests; torch deliberately excluded — heavy,
-      # and the Phase 2.5 sequence model is not yet implemented).
+      # (sklearn/xgboost for the model tests). torch is deliberately excluded —
+      # it's heavy, so the Phase 2.5 sequence-model test self-skips when torch is
+      # absent; the full LSTM experiment is reproduced locally via analysis/.
       - name: Install
         run: pip install -e ".[app,dev]" scikit-learn xgboost
 
