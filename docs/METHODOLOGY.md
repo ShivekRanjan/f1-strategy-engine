@@ -155,9 +155,9 @@ Forward-in-time, train ≤2024, test on 2025 (2026 excluded — regime reset):
 |---|---|
 | Rolling-slope (extrapolate local trend) | 0.396 s |
 | Persistence (next lap = last lap) | 0.335 s |
-| **LSTM (sequence → delta)** | **0.305 s** (±0.001 over 3 seeds) |
+| **LSTM (sequence → delta)** | **0.306 s** (±0.001 over 3 seeds) |
 
-The LSTM beats the dumb baseline by **~9%** — small but real and reproducible.
+The LSTM beats the dumb baseline by **~8.5%** — small but real and reproducible.
 Two honest readings come with it. First, the *rolling-slope* baseline is **worse
 than persistence**: at a one-lap horizon, fuel-corrected pace is close to a random
 walk, so naively projecting a 5-lap slope just amplifies per-lap noise — a useful
@@ -168,11 +168,21 @@ of chasing it.
 
 ![Sequence model vs baselines](../analysis/figures/phase2_5_sequence.png)
 
-Scope, stated plainly: this is a *nowcasting* gain on raw next-lap pace (it would
-sharpen a live in-race pace read), **not** a replacement for the degradation
-model in the strategy simulator — the simulator needs a full-stint pace curve as
-a function of tyre age, which the within-stint fixed-effects model supplies
-directly, not a one-step autoregressor that must be seeded by recent laps.
+The same leakage discipline applied to the model's own inputs. An early draft fed
+a "stint fraction" feature = tyre age ÷ *the stint's final age* — which silently
+leaks how long the stint will end up being (i.e. when the team pits, a future
+decision). It was removed; the result barely moved (0.305 → 0.306), confirming
+the edge came from the genuine lap-to-lap sequence, not from peeking ahead.
+
+Scope, stated plainly: this is a *nowcasting* gain on raw next-lap pace, **not** a
+replacement for the degradation model in the strategy simulator — the simulator
+needs a full-stint pace curve as a function of tyre age, which the within-stint
+fixed-effects model supplies directly, not a one-step autoregressor seeded by
+recent laps. It's surfaced where it belongs: the **Live Race tab's next-lap
+nowcast**. To keep that deployable on a torch-free host, the trained network is
+exported to a 28 KB numpy weights file and its LSTM forward pass re-implemented in
+numpy (a parity test pins the two to within 1e-6), so the live app ships the model
+without the heavy dependency.
 
 *Reproduce: `analysis/phase2_5_sequence.py`*
 

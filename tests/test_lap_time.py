@@ -13,9 +13,12 @@ import pytest
 
 from f1se.models.lap_time import (
     FEATURE_NAMES,
+    NumpyLapForecaster,
+    build_live_window,
     build_sequence_windows,
     evaluate_sequence_vs_baselines,
     fit_sequence_model,
+    train_and_export,
 )
 
 
@@ -104,3 +107,41 @@ def test_evaluate_returns_comparable_maes():
         assert res[k] > 0 and np.isfinite(res[k])
     assert res["n_test"] > 0 and res["test_year"] == 2025
     assert "lstm_vs_persistence_pct" in res
+
+
+def test_live_window_builds_or_returns_none():
+    n = 8
+    stint = pd.DataFrame({
+        "year": 2025, "round": 1, "event_name": "GP1", "driver": "VER", "stint": 1,
+        "lap_number": np.arange(1, n + 1), "tyre_life": np.arange(1, n + 1.0),
+        "compound": "SOFT", "position": 4,
+        "lap_time_fuel_corr_s": 90.0 + 0.08 * np.arange(1, n + 1),
+    })
+    built = build_live_window(stint, window=5)
+    assert built is not None
+    X, last = built
+    assert X.shape == (1, 5, len(FEATURE_NAMES))
+    assert np.isclose(last, stint["lap_time_fuel_corr_s"].iloc[-1])
+    # Too few laps for the window -> None (graceful "not enough green laps yet").
+    assert build_live_window(stint.head(3), window=5) is None
+
+
+def test_numpy_forecaster_matches_torch_and_forecasts(tmp_path):
+    pytest.importorskip("torch")
+    laps = _synthetic_clean_laps()
+    train = laps[laps["year"] <= 2024]
+    art = tmp_path / "lstm.npz"
+    model = train_and_export(train, art, epochs=5, hidden=8, seed=0)
+
+    fc = NumpyLapForecaster.load(art)
+    assert fc.feature_names == FEATURE_NAMES
+    # Numpy inference must reproduce the torch forward pass.
+    test_w = build_sequence_windows(laps[laps["year"] == 2025], window=fc.window)
+    assert np.allclose(fc.predict_delta(test_w.X), model.predict_delta(test_w.X), atol=1e-4)
+    # End-to-end forecast on a stint.
+    stint = laps[laps["year"] == 2025].groupby(
+        ["year", "round", "driver", "stint"], observed=True).get_group(
+        next(iter(laps[laps["year"] == 2025].groupby(
+            ["year", "round", "driver", "stint"], observed=True).groups)))
+    out = fc.forecast_next_lap(stint)
+    assert out["ok"] and np.isfinite(out["predicted_s"])

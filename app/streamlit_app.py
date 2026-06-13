@@ -54,6 +54,16 @@ def cached_simulate(track: str, compounds: tuple, pit_laps: tuple, use_cliff: bo
 
 
 @st.cache_resource
+def load_forecaster():
+    """Torch-free next-lap forecaster (Phase 2.5 LSTM, exported to numpy weights).
+    Returns None if the artifact isn't present, so the app degrades gracefully."""
+    from f1se.models.lap_time import NumpyLapForecaster
+
+    fp = PROC / "lstm_nextlap.npz"
+    return NumpyLapForecaster.load(fp) if fp.exists() else None
+
+
+@st.cache_resource
 def load_outcome():
     fp = PROC / "results.parquet"
     if not fp.exists():
@@ -323,6 +333,36 @@ def live_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
                  use_container_width=True)
     st.caption("**time left** = average time to the flag · **'how it compares'** = how often that "
                "plan would beat our pick across simulated races (lower → our pick is clearly best).")
+
+    _nextlap_nowcast(dl, cur)
+
+
+def _nextlap_nowcast(driver_laps: pd.DataFrame, cur: int) -> None:
+    """Phase 2.5 LSTM readout: forecast the next green lap's pace from the recent
+    sequence of laps in the current stint. A *separate* model from the strategy
+    sim — surfaced here because the live tab is exactly its use case."""
+    forecaster = load_forecaster()
+    if forecaster is None:
+        return
+    st.divider()
+    st.markdown("##### 🔮 Next-lap pace nowcast — *LSTM sequence model*")
+    hist = driver_laps[driver_laps["lap_number"] <= cur].sort_values("lap_number")
+    stint_laps = hist[hist["stint"] == int(hist.iloc[-1]["stint"])]
+    fc = forecaster.forecast_next_lap(stint_laps)
+    if not fc["ok"]:
+        st.caption(f"_{fc['reason']} — it reads the last {forecaster.window} green laps of the current stint._")
+        return
+    f1, f2 = st.columns([1, 1])
+    f1.metric("Predicted next lap (fuel-adjusted)", f"{fc['predicted_s']:.1f} s",
+              delta=f"{fc['delta_s']:+.2f} s vs last lap", delta_color="inverse")
+    read = ("🔻 tyres fading" if fc["delta_s"] > 0.05
+            else "🔺 still coming in / improving" if fc["delta_s"] < -0.05
+            else "➡ holding steady")
+    f2.metric("What the sequence implies", read)
+    st.caption(f"Forecasts the next green lap *if you stay out*, from the recent lap **sequence** "
+               f"(not just tyre age). The dumb baseline just repeats the last lap "
+               f"({fc['last_s']:.1f}s); on held-out 2025 this LSTM beat that by ~8.5%. "
+               f"Independent of the strategy search above.")
 
 
 # --- Tab 4: Undercut duel ---------------------------------------------------

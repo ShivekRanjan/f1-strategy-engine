@@ -20,7 +20,7 @@ season**, modelled across the regulation reset.
 | 🏁 **Strategy** | Searches ~1,000+ pit strategies per race via Monte Carlo (stochastic safety cars, calibrated per circuit) and recommends the best plan — with the honest spread: *typical* race vs *bad-luck* race, and whether the call is clear-cut or a coin-flip |
 | 🆚 **Undercut** | The two-car question: with a rival *N* seconds ahead, should you pit now to undercut or hold and cover? Models the cumulative-time crossover and returns the verdict with how many seconds it gains |
 | 🏆 **Outcome Predictor** | Podium probabilities (forward-tested, never a shuffled split) + a live championship projection that **bootstraps driver-strength uncertainty** so a 6-race leader doesn't show a dishonest 100% |
-| 🔴 **Live Race** | Replays any race lap-by-lap and **re-optimises the remaining strategy from the current state** each lap — the same engine call a live-timing feed drives on race day |
+| 🔴 **Live Race** | Replays any race lap-by-lap and **re-optimises the remaining strategy from the current state** each lap — the same engine call a live-timing feed drives on race day. Also shows a **next-lap pace nowcast** from the Phase 2.5 LSTM |
 
 ## The models I built, tested, and kept the receipts for
 
@@ -36,7 +36,7 @@ documented rather than deleted; one did, and it's here too:
 | **The 0.03 s/kg fuel assumption survived calibration** — backing an effective coefficient out of 43 races' pace trends gives a median of 0.031 | per-race implied-β distribution |
 | **Validation is leakage-safe by construction** — laps within a race are near-duplicates, so splits are GroupKFold-by-race plus a forward-in-time holdout; a shuffled split would inflate every score | `f1se/validation.py`, tested |
 | **2026's regulation reset breaks old models** — a pre-2026 degradation model barely beats "no degradation" on 2026 laps (+3%); blending 2026 data with the old prior via shrinkage recovers the signal (+16%) | `analysis/phase_2026_validation.py` |
-| **An LSTM *did* earn its place** — for next-lap pace forecasting it beats persistence by ~9% (0.305 vs 0.335s MAE on held-out 2025) by damping per-lap noise and anticipating tyre warm-up. The one case where complexity won, on the same footing | `analysis/phase2_5_sequence.py` |
+| **An LSTM *did* earn its place** — for next-lap pace forecasting it beats persistence by ~8.5% (0.306 vs 0.335s MAE on held-out 2025) by damping per-lap noise and anticipating tyre warm-up. The one case where complexity won, on the same footing — and it's live in the app (exported torch-free to a 28 KB numpy artifact) | `analysis/phase2_5_sequence.py` |
 
 Full receipts — figures, numbers, and how to reproduce each one — in
 **[docs/METHODOLOGY.md](docs/METHODOLOGY.md)**.
