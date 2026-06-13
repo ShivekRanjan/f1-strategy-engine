@@ -38,11 +38,12 @@ def load_dry() -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def cached_recommend(track: str, objective: str, use_cliff: bool, max_stops: int,
-                     n_runs: int, season: int) -> dict:
+                     n_runs: int, season: int, sc_scale: float = 1.0) -> dict:
     """Memoise recommendations — repeat clicks with the same settings are instant
     (matters on free-tier CPU, where a fresh search takes a few seconds)."""
     return load_engine().recommend(track, objective=objective, use_cliff=use_cliff,
-                                   max_stops=max_stops, n_runs=n_runs, season=season)
+                                   max_stops=max_stops, n_runs=n_runs, season=season,
+                                   sc_scale=sc_scale)
 
 
 @st.cache_data(show_spinner=False)
@@ -186,6 +187,20 @@ def strategy_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
             st.info(f"ℹ️ The pick is clear-cut — the runner-up wins only "
                     f"{runner_up_wins*100:.0f}% of simulated races.")
 
+        # "What would change this call?" — counterfactual with no safety car.
+        if info["sc_prob_per_lap"] > 0:
+            no_sc = cached_recommend(track, objective, use_cliff, max_stops, n_runs,
+                                     int(season), 0.0)
+            nb = no_sc["best"]
+            if (tuple(nb["compounds"]), tuple(nb["pit_laps"])) != \
+               (tuple(best["compounds"]), tuple(best["pit_laps"])):
+                st.caption(f"🔀 **What would change this?** With *no* safety car, the call flips to "
+                           f"**{fmt_plan(nb['compounds'], nb['pit_laps'])}** — so this recommendation "
+                           "is partly a hedge against the SC risk above.")
+            else:
+                st.caption("🔀 **What would change this?** The pick holds even assuming no safety "
+                           "car — it's driven by pace and degradation, not SC hedging.")
+
     left, right = st.columns([3, 2])
     with left:
         st.markdown("**Closest alternatives**")
@@ -213,29 +228,8 @@ def outcome_tab() -> None:
     results, feats, model, test_year, champ, ongoing, done, full = loaded
     mtr = model.metrics
 
-    st.markdown(f"#### Podium predictor — forward-tested on {test_year}")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("ROC-AUC", f"{mtr['auc']:.3f}",
-              help="How well the model ranks podium vs non-podium drivers (1.0 = perfect).")
-    c2.metric("Model precision@3", f"{mtr['model_precision_at_3']:.0%}")
-    c3.metric("Grid-baseline precision@3", f"{mtr['grid_baseline_precision_at_3']:.0%}")
-    if ongoing:
-        st.caption(f"⚠ Small test set — only {done} {test_year} races so far, so precision@3 is "
-                   "noisy. Grid position is itself the strongest podium signal; the model's value "
-                   "is the *calibrated probability* per driver, not reshuffling the grid's top 3.")
-
-    test = feats[feats["year"] == test_year]
-    rounds = sorted(test["round"].unique())
-    rnd = st.select_slider(f"{test_year} round", rounds, value=rounds[0], key="o_round")
-    race = test[test["round"] == rnd]
-    pred = predict_race(model, race).head(8).copy()
-    podium = set(race[race["podium"] == 1]["driver"])
-    pred["actual"] = pred["driver"].map(lambda d: "🏆" if d in podium else "")
-    pred["podium prob"] = (pred["podium_prob"] * 100).round(0).astype(int).astype(str) + "%"
-    st.markdown(f"**{race['event_name'].iloc[0]}** — predicted podium probabilities")
-    st.dataframe(pred[["driver", "team", "grid", "podium prob", "actual"]],
-                 use_container_width=True, hide_index=True)
-
+    # Championship first — it's the headline (visual, correct, and live for an
+    # ongoing season). Per-race podium detail follows below.
     if ongoing:
         st.markdown(f"#### Championship projection — {test_year} (live, after {done} of {full} races)")
         st.caption("Current points + the remaining races simulated, using **this season's** form "
@@ -255,9 +249,37 @@ def outcome_tab() -> None:
     fig.update_layout(xaxis_title="Title probability (%)", height=340, margin=dict(t=10, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
+    st.divider()
+    st.markdown(f"#### Podium predictor — forward-tested on {test_year}")
+    test = feats[feats["year"] == test_year]
+    rounds = sorted(test["round"].unique())
+    rnd = st.select_slider(f"{test_year} round", rounds, value=rounds[0], key="o_round")
+    race = test[test["round"] == rnd]
+    pred = predict_race(model, race).head(8).copy()
+    podium = set(race[race["podium"] == 1]["driver"])
+    pred["actual"] = pred["driver"].map(lambda d: "🏆" if d in podium else "")
+    pred["podium prob"] = (pred["podium_prob"] * 100).round(0).astype(int).astype(str) + "%"
+    st.markdown(f"**{race['event_name'].iloc[0]}** — predicted podium probabilities")
+    st.dataframe(pred[["driver", "team", "grid", "podium prob", "actual"]],
+                 use_container_width=True, hide_index=True)
 
-# --- Tab 3: Live race -------------------------------------------------------
+    with st.expander("Model quality (honest numbers)"):
+        c1, c2, c3 = st.columns(3)
+        c1.metric("ROC-AUC", f"{mtr['auc']:.3f}",
+                  help="How well the model ranks podium vs non-podium drivers (1.0 = perfect).")
+        c2.metric("Model precision@3", f"{mtr['model_precision_at_3']:.0%}")
+        c3.metric("Grid-baseline precision@3", f"{mtr['grid_baseline_precision_at_3']:.0%}")
+        st.caption(f"Forward-tested on {test_year} ({done if ongoing else full} races"
+                   f"{' so far — small sample, so precision@3 is noisy' if ongoing else ''}). "
+                   "Grid position is itself the strongest podium signal; the model's value is the "
+                   "*calibrated probability* per driver, not reshuffling the grid's top 3.")
+
+
+# --- Tab 3: Race replay / live ----------------------------------------------
 def live_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
+    st.caption("**Replay mode**: any past race, lap by lap — the engine re-optimises the remaining "
+               "strategy from the current state each lap. On race day the same engine call is fed "
+               "by F1's live timing stream instead (`f1se.live.record_live_timing`).")
     tracks = engine.tracks()
     tracks_2026 = frozenset(laps[laps["year"] >= 2026]["event_name"].unique())
     c1, c2, c3 = st.columns(3)
@@ -310,7 +332,7 @@ def main() -> None:
                "live in-race calls, all with quantified uncertainty.")
     engine = load_engine()
     dry = load_dry()
-    t1, t2, t3 = st.tabs(["🏁 Strategy", "🏆 Outcome Predictor", "🔴 Live Race"])
+    t1, t2, t3 = st.tabs(["🏁 Strategy", "🏆 Outcome Predictor", "🔴 Race Replay / Live"])
     with t1:
         strategy_tab(engine, dry)
     with t2:

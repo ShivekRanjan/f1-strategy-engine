@@ -135,8 +135,14 @@ class StrategyEngine:
             raise KeyError(f"unknown track: {track!r}")
         return self.total_laps_by_track[track]
 
-    def _sc_model(self, track: str) -> SafetyCarModel:
-        return self.sc_models.get(track, self.global_sc)
+    def _sc_model(self, track: str, scale: float = 1.0) -> SafetyCarModel:
+        """The track's calibrated SC hazard, optionally scaled (0 = no safety car,
+        2 = doubled risk) — used for 'what would change this call' sensitivity."""
+        sc = self.sc_models.get(track, self.global_sc)
+        if scale == 1.0:
+            return sc
+        return SafetyCarModel(prob_per_lap=sc.prob_per_lap * scale,
+                              mean_duration=sc.mean_duration)
 
     def _pit_loss(self, track: str) -> float:
         return self.pit_loss_by_track.get(track, self.global_pit_loss)
@@ -175,14 +181,19 @@ class StrategyEngine:
         top_k: int = 5,
         seed: int = 0,
         season: int | None = None,
+        sc_scale: float = 1.0,
     ) -> dict:
-        """Recommend a strategy for ``track`` with a ranked, uncertainty-aware shortlist."""
+        """Recommend a strategy for ``track`` with a ranked, uncertainty-aware shortlist.
+
+        ``sc_scale`` scales the calibrated safety-car hazard (0 = assume no SC,
+        2 = double the risk) for sensitivity analysis of the recommendation.
+        """
         total_laps = self._total_laps(track)
         pace_fn = self._pace_fn(track, total_laps, use_cliff, season)
         pit_loss = self._pit_loss(track)
         res = recommend_strategy(
             total_laps, pace_fn,
-            sc_model=self._sc_model(track), objective=objective,
+            sc_model=self._sc_model(track, sc_scale), objective=objective,
             n_runs=n_runs, top_k=top_k, seed=seed,
             max_stops=max_stops, max_stint=self.stint_limits,
             pit_loss_s=pit_loss, pit_loss_sc_s=round(pit_loss * 0.5, 1),
