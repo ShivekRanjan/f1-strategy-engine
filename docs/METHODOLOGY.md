@@ -139,12 +139,52 @@ yields genuinely open odds.
 
 *Reproduce: `analysis/phase_2026_validation.py`*
 
+## 8. The one time complexity won — a sequence model for next-lap pace
+
+Everywhere else the simpler model won. So the head-to-head framework owed the
+deep-learning option the same fair shot — and here it took it. The task is
+**one-step-ahead forecasting**: standing at lap *t* of a stint, predict lap
+*t+1*'s fuel-corrected time. An LSTM reads the recent run of laps; to stop it
+memorising track base pace (the same leakage trap §1 caught), it predicts the
+lap-to-lap **delta** Δ = pace[t+1] − pace[t], so the per-stint level cancels and
+it can only win by predicting *change*.
+
+Forward-in-time, train ≤2024, test on 2025 (2026 excluded — regime reset):
+
+| Next-lap predictor | MAE on held-out 2025 laps |
+|---|---|
+| Rolling-slope (extrapolate local trend) | 0.396 s |
+| Persistence (next lap = last lap) | 0.335 s |
+| **LSTM (sequence → delta)** | **0.305 s** (±0.001 over 3 seeds) |
+
+The LSTM beats the dumb baseline by **~9%** — small but real and reproducible.
+Two honest readings come with it. First, the *rolling-slope* baseline is **worse
+than persistence**: at a one-lap horizon, fuel-corrected pace is close to a random
+walk, so naively projecting a 5-lap slope just amplifies per-lap noise — a useful
+reminder that "more model" can hurt even among baselines. Second, the LSTM's edge
+is exactly that it **damps the noise persistence copies** and anticipates tyre
+warm-up and settling: in the figure it predicts *below* the lap-51 spike instead
+of chasing it.
+
+![Sequence model vs baselines](../analysis/figures/phase2_5_sequence.png)
+
+Scope, stated plainly: this is a *nowcasting* gain on raw next-lap pace (it would
+sharpen a live in-race pace read), **not** a replacement for the degradation
+model in the strategy simulator — the simulator needs a full-stint pace curve as
+a function of tyre age, which the within-stint fixed-effects model supplies
+directly, not a one-step autoregressor that must be seeded by recent laps.
+
+*Reproduce: `analysis/phase2_5_sequence.py`*
+
 ---
 
 ### The pattern
 
-Five times in this project, the sophisticated option (boosted trees, a fitted
-cliff, a recalibrated fuel coefficient, an evolution decomposition, trusting
-six races of 2026 form) was built, evaluated honestly, and **rejected in favour
-of a simpler, better-validated alternative** — with the evidence kept. That's
-the methodology: parsimony plus domain knowledge, verified at every step.
+Five times the sophisticated option (boosted trees, a fitted cliff, a
+recalibrated fuel coefficient, an evolution decomposition, trusting six races of
+2026 form) was built, evaluated honestly, and **rejected in favour of a simpler,
+better-validated alternative**. The sixth time — the sequence model — complexity
+**earned its place** on the identical leakage-safe footing. That's the whole
+point: the framework isn't biased toward simple *or* complex; it's biased toward
+what the held-out data supports. Parsimony plus domain knowledge, verified at
+every step.
