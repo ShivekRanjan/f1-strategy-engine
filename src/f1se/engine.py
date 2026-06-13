@@ -249,6 +249,36 @@ class StrategyEngine:
             "shortlist": rec.shortlist,
         }
 
+    def undercut(
+        self,
+        track: str,
+        *,
+        current_lap: int,
+        gap_s: float,
+        your_compound: str,
+        your_age: int,
+        your_new_compound: str,
+        rival_compound: str,
+        rival_age: int,
+        rival_new_compound: str,
+        rival_pit_lap: int,
+        season: int | None = None,
+        use_cliff: bool = True,
+        n_runs: int = 2000,
+    ) -> dict:
+        """Should you pit now to undercut a rival? (two-car crossover analysis)."""
+        from f1se.sim.duel import undercut_decision
+
+        total_laps = self._total_laps(track)
+        pace_fn = self._pace_fn(track, total_laps, use_cliff, season)
+        return undercut_decision(
+            current_lap=current_lap, total_laps=total_laps, pace_fn=pace_fn, gap_s=gap_s,
+            your_compound=your_compound, your_age=your_age, your_new_compound=your_new_compound,
+            rival_compound=rival_compound, rival_age=rival_age,
+            rival_new_compound=rival_new_compound, rival_pit_lap=rival_pit_lap,
+            pit_loss_s=self._pit_loss(track), n_runs=n_runs,
+        )
+
     def simulate(
         self,
         track: str,
