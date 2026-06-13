@@ -75,6 +75,18 @@ def test_engine_reliable_tracks_filter_and_flag():
     assert _synthetic_engine().tracks(reliable_only=True) == ["Test GP"]
 
 
+def test_engine_undercut_returns_both_options():
+    eng = _synthetic_engine()
+    out = eng.undercut("Test GP", current_lap=15, gap_s=2.0,
+                       your_compound="MEDIUM", your_age=15, your_new_compound="SOFT",
+                       rival_compound="HARD", rival_age=20, rival_new_compound="HARD",
+                       rival_pit_lap=25, n_runs=300)
+    assert "undercut" in out and "cover" in out
+    assert "verdict" in out and isinstance(out["undercut_works"], bool)
+    for opt in ("undercut", "cover"):
+        assert 0.0 <= out[opt]["p_ahead"] <= 1.0
+
+
 def test_engine_unknown_track_raises():
     with pytest.raises(KeyError):
         _synthetic_engine().recommend("Nowhere GP")

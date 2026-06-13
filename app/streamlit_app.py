@@ -325,6 +325,49 @@ def live_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
                "plan would beat our pick across simulated races (lower → our pick is clearly best).")
 
 
+# --- Tab 4: Undercut duel ---------------------------------------------------
+def undercut_tab(engine: StrategyEngine, laps: pd.DataFrame) -> None:
+    st.caption("**Should you pit now to jump a rival?** A two-car *cumulative-time* model of the "
+               "undercut — fresh-tyre pace vs the gap and pit loss, judged at the crossover once "
+               "both have stopped. (Free-air: it sizes the time delta, not dirty-air overtaking.)")
+    tracks = engine.tracks()
+    c1, c2, c3 = st.columns(3)
+    track = c1.selectbox("Circuit", tracks, format_func=lambda t: track_label(engine, t),
+                         index=default_track_index(tracks, frozenset()), key="u_track")
+    total = engine.total_laps_by_track.get(track, 60)
+    cur = c2.slider("Current lap", 2, total - 4, min(total // 3, total - 5), key="u_lap")
+    gap = c3.slider("Gap to rival (s, + = you're behind)", -5.0, 25.0, 2.0, 0.5, key="u_gap")
+
+    you_c, riv_c = st.columns(2)
+    comps = ["SOFT", "MEDIUM", "HARD"]
+    with you_c:
+        st.markdown("**You**")
+        yc = st.selectbox("Current tyre", comps, index=1, key="u_yc")
+        ya = st.slider("Tyre age", 1, total, min(15, total), key="u_ya")
+        ynew = st.selectbox("Pit to", comps, index=2, key="u_ynew")
+    with riv_c:
+        st.markdown("**Rival**")
+        rc = st.selectbox("Current tyre", comps, index=2, key="u_rc")
+        ra = st.slider("Tyre age", 1, total, min(15, total), key="u_ra")
+        rnew = st.selectbox("Pit to", comps, index=1, key="u_rnew")
+        rpit = st.slider("Rival's expected pit lap", cur + 1, total - 1,
+                         min(cur + 8, total - 1), key="u_rpit")
+
+    res = engine.undercut(track, current_lap=cur, gap_s=gap, your_compound=yc, your_age=ya,
+                          your_new_compound=ynew, rival_compound=rc, rival_age=ra,
+                          rival_new_compound=rnew, rival_pit_lap=rpit)
+    (st.success if res["undercut_works"] else st.info)(f"**{res['verdict']}**")
+
+    def _gap_txt(g): return f"{abs(g):.1f}s {'ahead' if g < 0 else 'behind'}"
+    m1, m2 = st.columns(2)
+    m1.metric("Pit now (undercut)", _gap_txt(res["undercut"]["final_gap_s"]),
+              help=f"ends ahead {res['undercut']['p_ahead']*100:.0f}% of simulated races")
+    m2.metric("Cover (pit with rival)", _gap_txt(res["cover"]["final_gap_s"]),
+              help=f"ends ahead {res['cover']['p_ahead']*100:.0f}% of simulated races")
+    st.caption(f"Undercutting nets **{res['undercut_gain_s']:+.1f}s** vs covering, measured at the "
+               "crossover. Positive = the undercut is faster.")
+
+
 # --- layout -----------------------------------------------------------------
 def main() -> None:
     st.title("🏎️ F1 Strategy Engine")
@@ -332,12 +375,15 @@ def main() -> None:
                "live in-race calls, all with quantified uncertainty.")
     engine = load_engine()
     dry = load_dry()
-    t1, t2, t3 = st.tabs(["🏁 Strategy", "🏆 Outcome Predictor", "🔴 Race Replay / Live"])
+    t1, t2, t3, t4 = st.tabs(["🏁 Strategy", "🆚 Undercut", "🏆 Outcome Predictor",
+                              "🔴 Race Replay / Live"])
     with t1:
         strategy_tab(engine, dry)
     with t2:
-        outcome_tab()
+        undercut_tab(engine, dry)
     with t3:
+        outcome_tab()
+    with t4:
         live_tab(engine, dry)
 
 
