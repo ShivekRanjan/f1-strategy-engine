@@ -12,27 +12,29 @@ license = { text = "MIT" }
 authors = [{ name = "Shive" }]
 
 # Base deps: enough to pull, tidy, and clean lap data (Phases 0–1).
+# Upper bounds cap at the next major above the known-good version, so a surprise
+# major release can't silently break a fresh install / cloud rebuild.
 dependencies = [
-    "fastf1>=3.4",
-    "pandas>=2.2",
-    "pyarrow>=16",
-    "numpy>=1.26",
-    "matplotlib>=3.9",
+    "fastf1>=3.4,<4",
+    "pandas>=2.2,<3",
+    "pyarrow>=16,<26",
+    "numpy>=1.26,<3",
+    "matplotlib>=3.9,<4",
 ]
 
 [project.optional-dependencies]
 # Phase 2+ modelling stack.
 models = [
-    "scikit-learn>=1.5",
-    "xgboost>=2.1",
-    "torch>=2.4",
+    "scikit-learn>=1.5,<2",
+    "xgboost>=2.1,<4",
+    "torch>=2.4,<3",
 ]
 # Phase 5 service + UI.
 app = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.30",
-    "streamlit>=1.38",
-    "plotly>=5.23",
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30,<1",
+    "streamlit>=1.38,<2",
+    "plotly>=5.23,<7",
 ]
 # Dev tooling.
 dev = [
@@ -57,8 +59,8 @@ addopts = "-m 'not network'"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-# Analysis scripts are exploratory by nature; lint the package, tests, and app.
-extend-exclude = ["notebooks"]
+# Analysis scripts (analysis/) are exploratory; lint the package, tests, and app.
+extend-exclude = ["analysis"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
