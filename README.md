@@ -1,8 +1,8 @@
 # 🏎️ F1 Strategy Engine
 
 [![CI](https://github.com/ShivekRanjan/f1-strategy-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/ShivekRanjan/f1-strategy-engine/actions/workflows/ci.yml)
-[![Live app](https://img.shields.io/badge/live%20app-streamlit-FF4B4B?logo=streamlit)](https://f1-all-eye-u98rbzxhkgp8yu6wu9jxuq.streamlit.app)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue)](pyproject.toml)
+[![Frontend: React + Vite](https://img.shields.io/badge/frontend-React%20%2B%20Vite-61dafb?logo=react&logoColor=white)](frontend/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Not *who will win* — *what should the team do*.** A pit-strategy decision engine
@@ -10,10 +10,9 @@ for Formula 1: given a race situation, it recommends when to stop and which tyre
 compounds to fit, with quantified uncertainty — including the ongoing **2026
 season**, modelled across the regulation reset.
 
-<!-- TODO: replace with assets/demo.gif (Live Race tab, lap slider) once recorded -->
-![F1 Strategy Engine](assets/hero.png)
+<!-- TODO: add a screenshot/GIF of the React UI to assets/ (Live Race tab, lap slider). -->
 
-**[▶ Try the live app](https://f1-all-eye-u98rbzxhkgp8yu6wu9jxuq.streamlit.app)** — four tabs:
+A **React + Vite** frontend over a **FastAPI** service wrapping the engine — four views:
 
 | Tab | What it does |
 |---|---|
@@ -50,23 +49,34 @@ FastF1 ──▶ data (load, clean, fuel-correct) ──▶ models (degradation,
                                                        │
                                           engine.StrategyEngine (orchestration)
                                                        │
-                                      ┌────────────────┴────────────────┐
-                                   api.py (FastAPI)             app/ (Streamlit)
+                                            api.py (FastAPI, thin)
+                                                       │  HTTP / JSON
+                                          frontend/ (React + Vite + Tailwind)
 ```
 
-The modelling lives in plain, tested functions; the API and UI are thin layers
-over one `StrategyEngine`. Per-circuit safety-car risk and pit loss are
-**measured** from 76 races of track-status and in/out-lap data — not assumed.
+The modelling lives in plain, tested functions; `api.py` is a thin wrapper over
+one `StrategyEngine`, and the React frontend is a pure client of that API. Per-
+circuit safety-car risk and pit loss are **measured** from 76 races of track-
+status and in/out-lap data — not assumed.
 
 ## Quickstart
 
+Two processes — the API and the frontend. **Backend:**
+
 ```bash
 py -3.12 -m venv .venv && .venv\Scripts\Activate.ps1   # (or python3.12 -m venv on unix)
-pip install -e ".[app,dev]"
-pytest                                   # 99 no-network tests
-pip install -e ".[models]"               # adds torch etc. for the LSTM chapter (heavy, optional)
-streamlit run app/streamlit_app.py       # the committed ~1.5 MB datasets make it run instantly
-uvicorn f1se.api:app --reload            # REST API at /docs
+pip install -e ".[app,dev]" scikit-learn   # scikit-learn powers the outcome predictor
+pytest                                     # 104 no-network tests
+uvicorn f1se.api:app --reload              # REST API + Swagger at localhost:8000/docs
+pip install -e ".[models]"                 # optional: torch etc. to retrain the LSTM (heavy)
+```
+
+**Frontend** (Node 18+), in a second terminal — the committed ~1.5 MB datasets make it run instantly:
+
+```bash
+cd frontend
+npm install
+npm run dev                                # UI at localhost:5173, talks to the API above
 ```
 
 Rebuild the datasets from source (network; FastF1-cached, resumable):
@@ -87,15 +97,22 @@ curl -X POST localhost:8000/recommend -H 'Content-Type: application/json' \
 
 ## Deploy
 
-`docker compose up` serves the UI (:8501) and API (:8000) from one image, or
-deploy Docker-free on Streamlit Community Cloud (this repo, main file
-`app/streamlit_app.py`) — `render.yaml` is included for Render/Fly.
+Full stack locally in one command: **`docker compose up`** → API on `:8000`,
+frontend on `:5173`.
+
+For a hosted demo, deploy the two pieces independently:
+
+- **API** → Render (`render.yaml` + `Dockerfile` included; injects `$PORT`, serves
+  `f1se.api:app`). Set `F1SE_CORS_ORIGINS` to your frontend origin.
+- **Frontend** → Vercel or Netlify (Vite static build). Set the project root to
+  `frontend/` and `VITE_API_BASE` to the deployed API URL. See
+  [frontend/README.md](frontend/README.md).
 
 ## Data
 
 [FastF1](https://docs.fastf1.dev/) timing, tyre, and track-status data,
 2023–2026. The raw cache is git-ignored; the small processed datasets are
-committed so the app and CI run without network.
+committed so the API and CI run without network.
 
 ## License
 

@@ -5,7 +5,7 @@ per-track safety-car and pit-loss calibrations, the stint-length guards, and the
 optimiser. It exposes a small, JSON-friendly surface (:meth:`recommend`,
 :meth:`simulate`, :meth:`race_info`, :meth:`tracks`).
 
-Keeping this in the package — not in ``api.py`` or the Streamlit app — is the
+Keeping this in the package — not in ``api.py`` or the React frontend — is the
 architecture rule: those are thin presentation layers; all engine logic lives
 here so it's tested once and reused by both. Build via :meth:`from_processed`
 (loads the parquet datasets) or construct directly from components in tests.
@@ -56,8 +56,8 @@ class StrategyEngine:
 
         Order: explicit arg, ``F1SE_DATA_DIR`` env, CWD/data/processed (how the
         app/API and cloud hosts run), then the repo root. CWD-relative matters
-        because a non-editable install (e.g. Streamlit Cloud) puts the package in
-        site-packages, where the repo-root path would not point at the data.
+        because a non-editable install (e.g. a container / site-packages) puts the
+        package outside the repo, where the repo-root path would not find the data.
         """
         if data_dir is not None:
             return Path(data_dir)

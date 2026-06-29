@@ -1,10 +1,15 @@
-# One-service deploy on Render (https://render.com) using the Dockerfile.
-# Render injects $PORT, which the Dockerfile's CMD honours.
+# Deploy the API on Render (https://render.com) using the Dockerfile.
+# Render injects $PORT, which the Dockerfile's CMD honours. The React frontend
+# deploys separately (Vercel/Netlify) with VITE_API_BASE set to this service's URL.
 services:
   - type: web
-    name: f1-strategy-engine
+    name: f1-strategy-api
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
-    healthCheckPath: /_stcore/health
+    healthCheckPath: /health
     autoDeploy: true
+    # Lock CORS to your deployed frontend origin (optional but tidy):
+    # envVars:
+    #   - key: F1SE_CORS_ORIGINS
+    #     value: https://your-frontend.vercel.app

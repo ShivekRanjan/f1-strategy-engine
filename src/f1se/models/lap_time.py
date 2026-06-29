@@ -424,7 +424,7 @@ def _race_grouped_fit(windows: SequenceWindows, *, val_frac: float, seed: int, *
 
 # --------------------------------------------------------------------------- #
 # Deploy path: export the trained net to a torch-free numpy forecaster.        #
-# The Streamlit app installs only the light [app] extra (no torch), so we run  #
+# The deployed API installs only the light [app] extra (no torch), so we run   #
 # the LSTM forward pass in pure numpy from a tiny committed weights artifact.  #
 # --------------------------------------------------------------------------- #
 def export_sequence_model(model: SequenceLapModel, path) -> None:

@@ -12,10 +12,11 @@ this file is *how*.
 - Install: `pip install -e .` (base) or `pip install -e ".[models,app,dev]"`.
 
 ## Architecture rule — keep it decoupled
-Modelling logic lives in `src/f1se/{models,sim}` as plain functions.
-**`api.py` and `app/streamlit_app.py` are thin layers — never put modelling
-logic in them.** This decoupling is the hedge across DS / ML-eng / full-stack
-role targets; don't collapse it.
+Modelling logic lives in `src/f1se/{models,sim}` as plain functions. The
+orchestration lives in `engine.py`. **`api.py` (FastAPI) and `frontend/` (React)
+are thin layers — never put modelling logic in them.** The React app is a pure
+client of the API; the API is a thin wrapper over the engine. This decoupling is
+the hedge across DS / ML-eng / full-stack role targets; don't collapse it.
 
 ## Hard rules
 - **No validation leakage.** Never use a shuffled `train_test_split` on laps —

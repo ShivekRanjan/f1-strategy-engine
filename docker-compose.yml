@@ -1,17 +1,25 @@
-# Run both faces of the engine locally over one shared image:
+# Full stack locally over one command:
 #   docker compose up
-# UI  -> http://localhost:8501   (Streamlit strategy explorer)
 # API -> http://localhost:8000/docs   (FastAPI)
+# UI  -> http://localhost:5173         (React frontend, talks to the API above)
 services:
-  ui:
-    build: .
-    image: f1se
-    ports:
-      - "8501:8501"
-
   api:
-    image: f1se
     build: .
-    command: uvicorn f1se.api:app --host 0.0.0.0 --port 8000
+    image: f1se-api
     ports:
       - "8000:8000"
+
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    depends_on:
+      - api
+    environment:
+      # The browser calls the API on the host, so localhost:8000 is correct.
+      VITE_API_BASE: "http://localhost:8000"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"

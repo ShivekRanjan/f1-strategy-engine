@@ -1,4 +1,5 @@
-# For hosts that install from requirements.txt (e.g. Streamlit Community Cloud).
-# Installs this package with its [app] extras (FastAPI/Streamlit/Plotly + base).
+# For hosts that install the API from requirements.txt (e.g. Render).
+# Installs this package with its [app] extra (FastAPI + uvicorn + base).
 # Local dev should prefer:  pip install -e ".[app,dev]"
+# The UI is the separate React app in frontend/ (its own npm install).
 .[app]

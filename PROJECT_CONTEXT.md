@@ -48,18 +48,19 @@ FastF1  ->  data (loader, clean)  ->  models (degradation, lap_time)
                                           |
                           +---------------+---------------+
                           v                               v
-                   api.py (FastAPI)              app/ (Streamlit)
+                   api.py (FastAPI)          frontend/ (React + Vite + Tailwind)
 ```
 
-Modelling logic never goes in `api.py` or the Streamlit app. This decoupling is
-the hedge for the undecided role target.
+Modelling logic never goes in `api.py` or the React frontend. This decoupling is
+the hedge for the undecided role target — and it paid off: the UI was swapped
+from Streamlit to a React client with zero changes to the engine.
 
 ## Tech stack
 
 - **Language/data:** Python 3.12, FastF1, pandas, pyarrow.
 - **Modelling (Phase 2+):** scikit-learn, XGBoost, PyTorch (sequence model).
-- **App (Phase 5):** FastAPI + Streamlit.
-- **Deploy (Phase 6):** Docker + a free host. A live link beats any README.
+- **App (Phase 5):** FastAPI service + a React + Vite + TypeScript + Tailwind frontend.
+- **Deploy (Phase 6):** Docker / Render (API) + Vercel-Netlify (frontend).
 
 ## Roadmap
 
@@ -69,7 +70,7 @@ the hedge for the undecided role target.
 - [ ] **Phase 2.5** — sequence lap-time model (LSTM/ConvLSTM) *(the DL differentiator)*
 - [ ] **Phase 3** — Monte Carlo race simulator + safety-car hazard model
 - [ ] **Phase 4** — strategy optimiser *(stretch: in-race re-optimisation)*
-- [ ] **Phase 5** — FastAPI service + Streamlit UI
+- [ ] **Phase 5** — FastAPI service + React (Vite/TS/Tailwind) frontend
 - [ ] **Phase 6** — Docker + live deploy + hero-image README
 - [ ] **Phase A** *(optional)* — standalone podium predictor
 
@@ -128,8 +129,8 @@ f1-strategy-engine/
 │   │   ├── simulate.py    # Phase 3 (stub)
 │   │   └── optimize.py    # Phase 4 (stub)
 │   └── api.py             # Phase 5 FastAPI (stub)
-├── app/streamlit_app.py   # Phase 5 UI (stub)
-├── notebooks/             # EDA goes here
+├── frontend/              # Phase 5 React + Vite + TS UI (API client)
+├── analysis/              # EDA + phase scripts
 └── tests/                 # no-network smoke tests (passing)
 ```
 
