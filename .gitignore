@@ -54,3 +54,10 @@ Thumbs.db
 
 # Local Claude Code settings (machine-specific)
 .claude/settings.local.json
+.claude/launch.json
+
+# Node / frontend
+node_modules/
+
+# dev server logs (uvicorn.log, frontend/vite.log, ...)
+*.log

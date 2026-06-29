@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-carbon text-ink;
+  }
+  body {
+    @apply font-sans antialiased;
+    background-image: radial-gradient(
+      1200px 600px at 50% -10%,
+      rgba(226, 35, 26, 0.08),
+      transparent 60%
+    );
+    min-height: 100vh;
+  }
+  /* tabular figures for all the lap times / probabilities */
+  .nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Recharts tooltip looks washed out on dark by default; tighten it. */
+.recharts-default-tooltip {
+  background: #15151a !important;
+  border: 1px solid #2c2c36 !important;
+  border-radius: 0.5rem !important;
+}
