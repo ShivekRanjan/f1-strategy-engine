@@ -6,25 +6,41 @@ deterministic; the real ``from_processed`` path is exercised by running the apps
 
 from __future__ import annotations
 
+import numpy as np
+import pandas as pd
 import pytest
 
 from f1se.engine import StrategyEngine
 from f1se.models.degradation import DegradationModel
 
+TRACK = "Test GP"
+
+
+def _synthetic_laps() -> pd.DataFrame:
+    """One driver, one 30-lap stint at Test GP 2024 — enough for the replay views."""
+    n = 30
+    lap = np.arange(1, n + 1)
+    return pd.DataFrame({
+        "year": 2024, "round": 1, "event_name": TRACK, "driver": "AAA", "stint": 1,
+        "lap_number": lap, "tyre_life": lap.astype(float), "compound": "MEDIUM",
+        "lap_time_s": 90.0 + 0.05 * lap, "lap_time_fuel_corr_s": 90.0 + 0.05 * lap,
+        "position": 5,
+    })
+
 
 def _synthetic_engine() -> StrategyEngine:
-    track = "Test GP"
     model = DegradationModel(
         group_cols=("event_name", "compound"),
         slopes={},
-        intercepts={(track, "SOFT"): 89.5, (track, "MEDIUM"): 90.0, (track, "HARD"): 90.4},
+        intercepts={(TRACK, "SOFT"): 89.5, (TRACK, "MEDIUM"): 90.0, (TRACK, "HARD"): 90.4},
         compound_slope={"SOFT": 0.09, "MEDIUM": 0.05, "HARD": 0.03},
         global_slope=0.05,
     )
     return StrategyEngine(
         deg_model=model,
-        total_laps_by_track={track: 40},
+        total_laps_by_track={TRACK: 40},
         stint_limits={"SOFT": 22, "MEDIUM": 30, "HARD": 38},
+        laps=_synthetic_laps(),
     )
 
 
@@ -92,6 +108,24 @@ def test_engine_unknown_track_raises():
         _synthetic_engine().recommend("Nowhere GP")
 
 
+def test_engine_replay_data_serving():
+    eng = _synthetic_engine()
+    assert eng.seasons(TRACK) == [2024]
+    assert eng.replay_drivers(TRACK, 2024) == ["AAA"]
+    hist = eng.lap_history(TRACK, 2024, "AAA")
+    assert hist["lap_min"] == 1 and hist["lap_max"] == 30 and len(hist["laps"]) == 30
+    assert hist["laps"][0]["compound"] == "MEDIUM"
+    with pytest.raises(KeyError):
+        eng.lap_history(TRACK, 2024, "ZZZ")
+
+
+def test_engine_live_replay_state_rec_and_nowcast():
+    out = _synthetic_engine().live_replay(TRACK, 2024, "AAA", current_lap=15, n_runs=300)
+    assert out["state"]["current_lap"] == 15 and out["state"]["laps_remaining"] == 25
+    assert out["recommendation"] is not None and out["recommendation"]["laps_remaining"] == 25
+    assert out["nowcast"] is None          # no forecaster on the synthetic engine
+
+
 def test_api_endpoints_with_synthetic_engine():
     from fastapi.testclient import TestClient
 
@@ -118,5 +152,22 @@ def test_api_endpoints_with_synthetic_engine():
             "track": "Test GP", "current_lap": 15, "current_compound": "SOFT",
             "tyre_age": 15, "compounds_used": ["MEDIUM", "SOFT"], "n_runs": 300})
         assert live.status_code == 200 and live.json()["laps_remaining"] == 25
+
+        uc = client.post("/undercut", json={
+            "track": "Test GP", "current_lap": 15, "gap_s": 2.0,
+            "your_compound": "MEDIUM", "your_age": 15, "your_new_compound": "SOFT",
+            "rival_compound": "HARD", "rival_age": 20, "rival_new_compound": "HARD",
+            "rival_pit_lap": 25, "n_runs": 300})
+        assert uc.status_code == 200 and "verdict" in uc.json()
+
+        assert client.get("/seasons/Test GP").json()["seasons"] == [2024]
+        assert client.get("/drivers/Test GP/2024").json()["drivers"] == ["AAA"]
+        lh = client.get("/laps/Test GP/2024/AAA").json()
+        assert lh["lap_max"] == 30 and len(lh["laps"]) == 30
+
+        rep = client.post("/live", json={"track": "Test GP", "season": 2024,
+                                         "driver": "AAA", "current_lap": 15, "n_runs": 300})
+        assert rep.status_code == 200
+        assert rep.json()["state"]["laps_remaining"] == 25 and rep.json()["nowcast"] is None
     finally:
         api.app.dependency_overrides.clear()

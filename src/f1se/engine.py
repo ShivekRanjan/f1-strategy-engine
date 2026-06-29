@@ -44,6 +44,10 @@ class StrategyEngine:
     global_sc: SafetyCarModel = field(default_factory=SafetyCarModel)
     global_pit_loss: float = DEFAULT_PIT_LOSS_S
     well_sampled_tracks: set = field(default_factory=set)
+    # Lap data + next-lap forecaster, kept so the API can serve the race-replay
+    # views and the LSTM nowcast (None for component-built engines in tests).
+    laps: pd.DataFrame | None = None
+    forecaster: object | None = None
 
     # ---- construction --------------------------------------------------------
     @staticmethod
@@ -108,6 +112,13 @@ class StrategyEngine:
             fitted_counts[str(ev)] = fitted_counts.get(str(ev), 0) + 1
         well_sampled = {ev for ev, n in fitted_counts.items() if n >= 3}
 
+        # Next-lap forecaster (Phase 2.5 LSTM, exported torch-free) — optional.
+        forecaster = None
+        npz = data_dir / "lstm_nextlap.npz"
+        if npz.exists():
+            from f1se.models.lap_time import NumpyLapForecaster
+            forecaster = NumpyLapForecaster.load(npz)
+
         return cls(
             deg_model=deg_model,
             deg_model_2026=deg_model_2026,
@@ -118,6 +129,8 @@ class StrategyEngine:
             global_sc=global_sc,
             global_pit_loss=float(global_pit),
             well_sampled_tracks=well_sampled,
+            laps=dry,
+            forecaster=forecaster,
         )
 
     # ---- per-track parameters ------------------------------------------------
@@ -311,3 +324,106 @@ class StrategyEngine:
             "hist_counts": counts.tolist(),
             "hist_edges": edges.tolist(),
         }
+
+    # ---- race-replay data serving (for the live view) ------------------------
+    def _require_laps(self) -> pd.DataFrame:
+        if self.laps is None:
+            raise RuntimeError("engine has no lap data — build it via from_processed()")
+        return self.laps
+
+    def seasons(self, track: str) -> list[int]:
+        """Seasons with data for ``track`` (ascending)."""
+        laps = self._require_laps()
+        yrs = laps.loc[laps["event_name"] == track, "year"].dropna().unique()
+        return sorted(int(y) for y in yrs)
+
+    def replay_drivers(self, track: str, season: int) -> list[str]:
+        """Drivers who have laps in ``track`` for ``season``."""
+        laps = self._require_laps()
+        race = laps[(laps["event_name"] == track) & (laps["year"] == season)]
+        if race.empty:
+            raise KeyError(f"no laps for {track!r} {season}")
+        return sorted(d for d in race["driver"].dropna().astype(str).unique())
+
+    def _driver_laps(self, track: str, season: int, driver: str) -> pd.DataFrame:
+        laps = self._require_laps()
+        dl = laps[(laps["event_name"] == track) & (laps["year"] == season)
+                  & (laps["driver"] == driver)].sort_values("lap_number")
+        if dl.empty:
+            raise KeyError(f"no laps for {driver!r} in {track!r} {season}")
+        return dl
+
+    def lap_history(self, track: str, season: int, driver: str) -> dict:
+        """One driver's clean racing laps — for the replay chart and slider."""
+        dl = self._driver_laps(track, season, driver)
+        total_laps = self.total_laps_by_track.get(track, int(dl["lap_number"].max()))
+
+        def _f(x):  # NaN -> None, numpy -> python float
+            return None if pd.isna(x) else float(x)
+
+        laps_out = [
+            {
+                "lap": int(r.lap_number),
+                "stint": None if pd.isna(r.stint) else int(r.stint),
+                "compound": str(r.compound),
+                "tyre_age": _f(r.tyre_life),
+                "lap_time_s": _f(r.lap_time_s),
+                "lap_time_fuel_corr_s": _f(r.lap_time_fuel_corr_s),
+                "position": None if pd.isna(r.position) else int(r.position),
+            }
+            for r in dl.itertuples(index=False)
+        ]
+        return {
+            "track": track, "season": int(season), "driver": driver,
+            "total_laps": int(total_laps),
+            "lap_min": int(dl["lap_number"].min()), "lap_max": int(dl["lap_number"].max()),
+            "laps": laps_out,
+        }
+
+    def _nowcast(self, hist: pd.DataFrame) -> dict | None:
+        """LSTM next-lap nowcast from the current stint's laps (None if unavailable)."""
+        if self.forecaster is None or hist.empty:
+            return None
+        stint = hist[hist["stint"] == int(hist.iloc[-1]["stint"])]
+        return self.forecaster.forecast_next_lap(stint)
+
+    def live_replay(
+        self,
+        track: str,
+        season: int,
+        driver: str,
+        current_lap: int,
+        *,
+        n_runs: int = 2000,
+        use_cliff: bool = True,
+        objective: str = "mean",
+    ) -> dict:
+        """Replay state at ``current_lap``: derived state + remaining-strategy call
+        + the next-lap nowcast. The one call the live view makes per lap."""
+        from f1se.live import state_from_laps
+
+        dl = self._driver_laps(track, season, driver)
+        total_laps = self.total_laps_by_track.get(track, int(dl["lap_number"].max()))
+        hist = dl[dl["lap_number"] <= current_lap]
+        if hist.empty:
+            raise ValueError(f"no laps up to lap {current_lap}")
+        state = state_from_laps(hist, total_laps)
+
+        out: dict = {
+            "track": track, "season": int(season), "driver": driver,
+            "state": {
+                "current_lap": state.current_lap, "total_laps": total_laps,
+                "current_compound": state.current_compound, "tyre_age": state.tyre_age,
+                "laps_remaining": state.laps_remaining,
+                "compounds_used": list(state.compounds_used),
+            },
+            "recommendation": None,
+            "nowcast": self._nowcast(hist),
+        }
+        if state.laps_remaining >= 3:
+            out["recommendation"] = self.recommend_live(
+                track, state.current_lap, state.current_compound, state.tyre_age,
+                compounds_used=state.compounds_used, n_runs=n_runs, season=int(season),
+                use_cliff=use_cliff, objective=objective,
+            )
+        return out
