@@ -122,6 +122,20 @@ def test_engine_replay_data_serving():
         eng.lap_history(TRACK, 2024, "ZZZ")
 
 
+def test_engine_tracks_info_and_degradation_curves():
+    eng = _synthetic_engine()
+    assert eng.tracks_info() == [{"track": TRACK, "total_laps": 40, "well_sampled": False}]
+    curves = eng.degradation_curves(TRACK)
+    assert set(curves["compounds"]) == {"SOFT", "MEDIUM", "HARD"}
+    soft = curves["compounds"]["SOFT"]
+    assert soft["max_age"] == 22 and len(soft["ages"]) == 23
+    assert soft["linear"][0] == 0.0 and soft["linear"][-1] > 0          # rises with age
+    assert all(c >= lin for c, lin in zip(soft["cliff"], soft["linear"]))  # cliff adds loss
+    assert soft["cliff"][-1] > soft["linear"][-1]                       # onset 18 < max 22
+    with pytest.raises(KeyError):
+        eng.degradation_curves("Nowhere")
+
+
 def test_engine_live_replay_state_rec_and_nowcast():
     out = _synthetic_engine().live_replay(TRACK, 2024, "AAA", current_lap=15, n_runs=300)
     assert out["state"]["current_lap"] == 15 and out["state"]["laps_remaining"] == 25
@@ -162,6 +176,11 @@ def test_api_endpoints_with_synthetic_engine():
             "rival_compound": "HARD", "rival_age": 20, "rival_new_compound": "HARD",
             "rival_pit_lap": 25, "n_runs": 300})
         assert uc.status_code == 200 and "verdict" in uc.json()
+
+        assert client.get("/tracks_info").json()["tracks"][0]["total_laps"] == 40
+        deg = client.get("/degradation/Test GP").json()
+        assert set(deg["compounds"]) == {"SOFT", "MEDIUM", "HARD"}
+        assert client.get("/degradation/Nowhere").status_code == 404
 
         assert client.get("/seasons/Test GP").json()["seasons"] == [2024]
         assert client.get("/seasons").json()["seasons"] == [2024]

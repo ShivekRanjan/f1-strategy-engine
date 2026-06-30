@@ -107,10 +107,26 @@ def tracks(engine: StrategyEngine = Depends(get_engine)) -> dict:
     return {"tracks": engine.tracks()}
 
 
+@app.get("/tracks_info")
+def tracks_info(engine: StrategyEngine = Depends(get_engine)) -> dict:
+    """Circuits with race distance + data-quality flag (for the control rail)."""
+    return {"tracks": engine.tracks_info()}
+
+
 @app.get("/race/{track}")
 def race_info(track: str, engine: StrategyEngine = Depends(get_engine)) -> dict:
     try:
         return engine.race_info(track)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@app.get("/degradation/{track}")
+def degradation(track: str, season: int | None = None, cliff: bool = True,
+                engine: StrategyEngine = Depends(get_engine)) -> dict:
+    """Per-compound degradation curves (linear baseline + cliff) for the chart."""
+    try:
+        return engine.degradation_curves(track, season=season, use_cliff=cliff)
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 

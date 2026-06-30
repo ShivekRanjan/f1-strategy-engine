@@ -348,6 +348,40 @@ class StrategyEngine:
         evs = laps.loc[laps["year"] == season, "event_name"].dropna().unique()
         return sorted(str(e) for e in evs)
 
+    def tracks_info(self) -> list[dict]:
+        """All circuits with their race distance + data-quality flag (for the rail)."""
+        return [
+            {"track": t, "total_laps": self._total_laps(t), "well_sampled": self.is_well_sampled(t)}
+            for t in self.tracks()
+        ]
+
+    def degradation_curves(self, track: str, *, season: int | None = None,
+                           use_cliff: bool = True) -> dict:
+        """Per-compound pace-loss-vs-fresh curves: linear baseline and +cliff prior.
+
+        The data the degradation chart draws — the era-appropriate model's slope
+        gives the linear baseline; the (domain-knowledge) cliff prior adds the
+        accelerating end-of-stint term. Curves run to each compound's max stint.
+        """
+        if track not in self.total_laps_by_track:
+            raise KeyError(f"unknown track: {track!r}")
+        model = self._model_for(season)
+        cliff = CliffPrior() if use_cliff else CliffPrior.disabled()
+        comps: dict[str, dict] = {}
+        for comp in ("SOFT", "MEDIUM", "HARD"):
+            max_age = int(self.stint_limits.get(comp, 40))
+            slope = float(model.slope(comp, track))
+            ages = list(range(0, max_age + 1))
+            comps[comp] = {
+                "max_age": max_age,
+                "onset": cliff.cliff_age.get(comp),
+                "slope": round(slope, 4),
+                "ages": ages,
+                "linear": [round(slope * a, 4) for a in ages],
+                "cliff": [round(slope * a + cliff.extra_loss(comp, a), 4) for a in ages],
+            }
+        return {"track": track, "season": season, "use_cliff": use_cliff, "compounds": comps}
+
     def replay_drivers(self, track: str, season: int) -> list[str]:
         """Drivers who have laps in ``track`` for ``season``."""
         laps = self._require_laps()
