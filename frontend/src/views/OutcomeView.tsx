@@ -53,7 +53,7 @@ function Body({ o }: { o: OutcomeResp }) {
             <YAxis type="category" dataKey="driver" stroke="#ecedf0" fontSize={12} width={48} />
             <Bar dataKey="p" radius={[0, 3, 3, 0]}>
               {data.map((_, i) => (
-                <Cell key={i} fill="#e2231a" />
+                <Cell key={i} fill="#2dd4bf" />
               ))}
               <LabelList
                 dataKey="p"

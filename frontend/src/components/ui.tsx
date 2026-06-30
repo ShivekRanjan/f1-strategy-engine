@@ -41,12 +41,12 @@ export function Metric({
   title?: string;
 }) {
   return (
-    <Card className={`p-4 ${accent ? "border-l-2 border-l-f1" : ""}`} >
-      <div className="text-[11px] uppercase tracking-wide text-ink-muted" title={title}>
+    <Card className={`p-4 ${accent ? "border-l-2 border-l-accent" : ""}`}>
+      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint" title={title}>
         {label}
       </div>
-      <div className="nums mt-1 text-2xl font-700 text-ink">{value}</div>
-      {sub != null && <div className="nums mt-0.5 text-xs text-ink-muted">{sub}</div>}
+      <div className={`nums mt-1 font-mono text-2xl ${accent ? "text-accent" : "text-ink"}`}>{value}</div>
+      {sub != null && <div className="nums mt-1 font-mono text-[11px] text-ink-muted">{sub}</div>}
     </Card>
   );
 }
@@ -60,8 +60,8 @@ export function Badge({
   tone?: "neutral" | "red" | "green" | "amber";
 }) {
   const tones: Record<string, string> = {
-    neutral: "bg-carbon-600 text-ink-muted",
-    red: "bg-f1/15 text-f1",
+    neutral: "bg-surface-inset2 text-ink-dim",
+    red: "bg-soft/15 text-soft",
     green: "bg-emerald-500/15 text-emerald-400",
     amber: "bg-amber-400/15 text-amber-300",
   };

@@ -249,7 +249,7 @@ function PaceChart({
         <ReferenceLine x={cur} stroke="#e2231a" strokeDasharray="4 3" />
         <Line type="monotone" dataKey="t" stroke="#ecedf0" strokeWidth={1.6} dot={false} isAnimationActive={false} />
         {nowcast?.ok && (
-          <ReferenceDot x={cur + 1} y={nowcast.predicted_s!} r={4} fill="#38bdf8" stroke="#0b0b0d" />
+          <ReferenceDot x={cur + 1} y={nowcast.predicted_s!} r={4} fill="#2dd4bf" stroke="#080b11" />
         )}
       </LineChart>
     </ResponsiveContainer>
