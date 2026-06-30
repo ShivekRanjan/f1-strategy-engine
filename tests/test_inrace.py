@@ -69,6 +69,24 @@ def test_recommend_pits_off_a_shot_tyre():
     assert rec.shortlist[0]["rank"] == 1
 
 
+def test_worn_tyre_near_cap_still_has_legal_plans():
+    # Regression (Dutch GP 2025, VER): SOFT already at age 22 (cap 27), only SOFT
+    # used, 50 laps left. The old grid started the first pit at cur+min_stint=28,
+    # past the SOFT cap -> ZERO plans -> "no legal remaining plans" error. The
+    # ongoing stint has already run >= min_stint, so an earlier pit must be legal.
+    state = RaceState(72, 22, "SOFT", 22, compounds_used=("SOFT",))
+    limits = {"SOFT": 27, "MEDIUM": 32, "HARD": 43}
+    plans = enumerate_remaining(state, max_future_stops=2, pit_grid_step=2,
+                                min_stint=6, max_stint=limits)
+    assert plans, "a worn tyre near its cap must still yield legal plans"
+    # The only way out is a first pit at/under the SOFT cap.
+    assert any(p.future_pits and p.future_pits[0] <= 27 for p in plans)
+    # recommend_remaining must not dead-end either.
+    rec = recommend_remaining(state, _pace, sc_model=None, pace_noise_s=0.0, n_runs=4,
+                              pit_grid_step=2, min_stint=6, max_stint=limits)
+    assert rec.best.future_pits, "must pit off the worn soft"
+
+
 def test_recommend_stays_out_near_the_end():
     # A few laps left, 2-compound rule already met -> just stay out.
     state = RaceState(total_laps=55, current_lap=50, current_compound="HARD",

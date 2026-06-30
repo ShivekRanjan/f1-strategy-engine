@@ -160,7 +160,7 @@ function ReplayInner({
               {live.data.recommendation ? (
                 <RecCard rec={live.data.recommendation} usedCount={live.data.state.compounds_used.length} />
               ) : (
-                <Callout>Race effectively over — nothing left to optimise.</Callout>
+                <Callout>{live.data.rec_note ?? "No recommendation available from this state."}</Callout>
               )}
               <NowcastCard nowcast={nowcast} />
             </div>

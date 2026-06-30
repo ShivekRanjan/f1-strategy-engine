@@ -114,12 +114,23 @@ export function Spinner({ label }: { label?: string }) {
 }
 
 export function ErrorNote({ error }: { error: string }) {
+  // A failed fetch (API down / CORS) reads very differently from a real engine
+  // error returned with a message — don't mislabel the latter as "unreachable".
+  const isNetwork = /failed to fetch|load failed|networkerror|fetch/i.test(error);
   return (
     <Callout tone="warn">
-      <span className="font-600">Couldn’t reach the engine.</span> {error}
-      <div className="mt-1 text-xs text-ink-muted">
-        Is the API running? <code className="text-ink">uvicorn f1se.api:app</code>
-      </div>
+      {isNetwork ? (
+        <>
+          <span className="font-600">Couldn’t reach the engine.</span> {error}
+          <div className="mt-1 text-xs text-ink-muted">
+            Is the API running? <code className="text-ink">uvicorn f1se.api:app</code>
+          </div>
+        </>
+      ) : (
+        <>
+          <span className="font-600">Engine error:</span> {error}
+        </>
+      )}
     </Callout>
   );
 }

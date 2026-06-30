@@ -79,7 +79,13 @@ def enumerate_remaining(
     """
     used = set(state.compounds_used) | {state.current_compound}
     cur, total = state.current_lap, state.total_laps
-    grid = list(range(cur + min_stint, total - min_stint + 1, pit_grid_step))
+    # First pit can be as early as next lap once the *ongoing* stint has already
+    # reached min_stint (it's been running tyre_age laps). min_stint only gates
+    # the length of fresh future stints (handled in stints_ok) — it must not
+    # force a worn current tyre to stay out, which can leave NO legal plan when
+    # the current compound is near its max stint.
+    grid_start = cur + max(1, min_stint - state.tyre_age)
+    grid = list(range(grid_start, total - min_stint + 1, pit_grid_step))
     plans: list[RemainingPlan] = []
 
     def ongoing_ok(first_pit: int) -> bool:

@@ -429,12 +429,19 @@ class StrategyEngine:
                 "compounds_used": list(state.compounds_used),
             },
             "recommendation": None,
+            "rec_note": None,
             "nowcast": self._nowcast(hist),
         }
-        if state.laps_remaining >= 3:
-            out["recommendation"] = self.recommend_live(
-                track, state.current_lap, state.current_compound, state.tyre_age,
-                compounds_used=state.compounds_used, n_runs=n_runs, season=int(season),
-                use_cliff=use_cliff, objective=objective,
-            )
+        if state.laps_remaining < 3:
+            out["rec_note"] = "Race effectively over — nothing left to optimise."
+        else:
+            try:
+                out["recommendation"] = self.recommend_live(
+                    track, state.current_lap, state.current_compound, state.tyre_age,
+                    compounds_used=state.compounds_used, n_runs=n_runs, season=int(season),
+                    use_cliff=use_cliff, objective=objective,
+                )
+            except ValueError as e:
+                # e.g. a worn tyre near its stint limit with no legal plan left.
+                out["rec_note"] = f"No strategy to recommend: {e}."
         return out

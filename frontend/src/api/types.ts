@@ -112,6 +112,7 @@ export interface LiveResp {
   driver: string;
   state: LiveState;
   recommendation: LiveRecommendation | null;
+  rec_note: string | null;
   nowcast: Nowcast | null;
 }
 
