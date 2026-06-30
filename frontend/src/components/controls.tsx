@@ -91,8 +91,8 @@ export function Segmented<T extends string>({
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`rounded-md px-3 py-1.5 text-sm transition ${
-            value === o.value ? "bg-f1 text-white" : "text-ink-muted hover:text-ink"
+          className={`rounded-md px-3 py-1.5 text-sm font-600 transition ${
+            value === o.value ? "bg-accent text-accent-ink" : "text-ink-muted hover:text-ink"
           }`}
         >
           {o.label}

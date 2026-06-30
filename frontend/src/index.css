@@ -4,26 +4,39 @@
 
 @layer base {
   html {
-    @apply bg-carbon text-ink;
+    @apply bg-surface-page text-ink;
   }
   body {
     @apply font-sans antialiased;
-    background-image: radial-gradient(
-      1200px 600px at 50% -10%,
-      rgba(226, 35, 26, 0.08),
-      transparent 60%
-    );
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
     min-height: 100vh;
   }
-  /* tabular figures for all the lap times / probabilities */
+  /* tabular figures for all the lap times / probabilities / data */
   .nums {
     font-variant-numeric: tabular-nums;
   }
 }
 
-/* Recharts tooltip looks washed out on dark by default; tighten it. */
+/* Custom scrollbar — thin, on-theme (per design spec). */
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2a3340;
+  border-radius: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Recharts tooltip — dark, bordered, matches the spec's chart tooltips. */
 .recharts-default-tooltip {
-  background: #15151a !important;
-  border: 1px solid #2c2c36 !important;
-  border-radius: 0.5rem !important;
+  background: #11161f !important;
+  border: 1px solid #2a3340 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+  font-family: "IBM Plex Mono", ui-monospace, monospace !important;
+  font-size: 11px !important;
 }
