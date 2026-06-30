@@ -1,6 +1,27 @@
 // Response shapes from the FastAPI backend (f1se.api). Only the fields the UI
 // reads are typed; the engine returns a few extras we ignore.
 
+export interface TrackInfo {
+  track: string;
+  total_laps: number;
+  well_sampled: boolean;
+}
+
+export interface CompoundCurve {
+  max_age: number;
+  onset: number | null;
+  slope: number;
+  ages: number[];
+  linear: number[];
+  cliff: number[];
+}
+export interface DegradationResp {
+  track: string;
+  season: number | null;
+  use_cliff: boolean;
+  compounds: Record<string, CompoundCurve>;
+}
+
 export interface RaceInfo {
   track: string;
   total_laps: number;

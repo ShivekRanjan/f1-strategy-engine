@@ -1,11 +1,13 @@
 // Tiny typed fetch wrapper around the FastAPI backend.
 import type {
+  DegradationResp,
   LapHistory,
   LiveResp,
   OutcomeResp,
   RaceInfo,
   RecommendResp,
   SimulateResp,
+  TrackInfo,
   UndercutResp,
 } from "./types";
 
@@ -34,7 +36,13 @@ const post = <T>(path: string, body: unknown) =>
 
 export const api = {
   tracks: () => req<{ tracks: string[] }>("/tracks"),
+  tracksInfo: () => req<{ tracks: TrackInfo[] }>("/tracks_info"),
   raceInfo: (track: string) => req<RaceInfo>(`/race/${encodeURIComponent(track)}`),
+  degradation: (track: string, season: number | null, cliff: boolean) =>
+    req<DegradationResp>(
+      `/degradation/${encodeURIComponent(track)}?cliff=${cliff}` +
+        (season != null ? `&season=${season}` : ""),
+    ),
   seasons: (track: string) =>
     req<{ seasons: number[] }>(`/seasons/${encodeURIComponent(track)}`),
   allSeasons: () => req<{ seasons: number[] }>("/seasons"),
