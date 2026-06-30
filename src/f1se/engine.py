@@ -337,6 +337,17 @@ class StrategyEngine:
         yrs = laps.loc[laps["event_name"] == track, "year"].dropna().unique()
         return sorted(int(y) for y in yrs)
 
+    def all_seasons(self) -> list[int]:
+        """Every season present in the data (ascending) — for season-first nav."""
+        laps = self._require_laps()
+        return sorted(int(y) for y in laps["year"].dropna().unique())
+
+    def circuits_for_season(self, season: int) -> list[str]:
+        """Circuits raced in ``season`` (sorted) — the season-specific shortlist."""
+        laps = self._require_laps()
+        evs = laps.loc[laps["year"] == season, "event_name"].dropna().unique()
+        return sorted(str(e) for e in evs)
+
     def replay_drivers(self, track: str, season: int) -> list[str]:
         """Drivers who have laps in ``track`` for ``season``."""
         laps = self._require_laps()

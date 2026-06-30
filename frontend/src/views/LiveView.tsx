@@ -23,18 +23,29 @@ export default function LiveView() {
   return <TracksGate>{(tracks) => <Inner tracks={tracks} />}</TracksGate>;
 }
 
-function Inner({ tracks }: { tracks: string[] }) {
-  const [track, setTrack] = useState(() => pickDefaultTrack(tracks));
+function Inner({ tracks: _tracks }: { tracks: string[] }) {
+  // Season-first navigation: pick a season, then only that season's circuits show.
   const [season, setSeason] = useState<number | null>(null);
+  const [track, setTrack] = useState<string | null>(null);
   const [driver, setDriver] = useState<string | null>(null);
 
-  const seasons = useAsync(() => api.seasons(track), [track]);
+  const seasons = useAsync(() => api.allSeasons(), []);
   useEffect(() => {
     if (seasons.data?.seasons?.length) setSeason(seasons.data.seasons.at(-1)!);
   }, [seasons.data]);
 
+  const circuits = useAsync(
+    () => (season == null ? Promise.resolve(null) : api.circuits(season)),
+    [season],
+  );
+  // When the season changes, default the circuit to a sensible one in that season.
+  useEffect(() => {
+    const cs = circuits.data?.circuits;
+    if (cs?.length) setTrack((prev) => (prev && cs.includes(prev) ? prev : pickDefaultTrack(cs)));
+  }, [circuits.data]);
+
   const drivers = useAsync(
-    () => (season == null ? Promise.resolve(null) : api.drivers(track, season)),
+    () => (season == null || track == null ? Promise.resolve(null) : api.drivers(track, season)),
     [track, season],
   );
   useEffect(() => {
@@ -50,15 +61,22 @@ function Inner({ tracks }: { tracks: string[] }) {
       </ViewIntro>
       <Card className="p-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Circuit">
-            <Select value={track} options={tracks} onChange={setTrack} />
-          </Field>
           <Field label="Season">
             <Select
               value={season ?? 0}
               options={seasons.data?.seasons ?? []}
-              onChange={(v) => setSeason(Number(v))}
+              onChange={(v) => {
+                setSeason(Number(v));
+                setTrack(null); // reset so the new season's default circuit is picked
+              }}
               getLabel={(y) => (Number(y) >= 2026 ? `${y} · new regs` : String(y))}
+            />
+          </Field>
+          <Field label="Circuit">
+            <Select
+              value={track ?? ""}
+              options={circuits.data?.circuits ?? []}
+              onChange={(v) => setTrack(String(v))}
             />
           </Field>
           <Field label="Driver">
@@ -70,7 +88,7 @@ function Inner({ tracks }: { tracks: string[] }) {
           </Field>
         </div>
       </Card>
-      {season != null && driver && (
+      {season != null && track && driver && (
         <Replay key={`${track}|${season}|${driver}`} track={track} season={season} driver={driver} />
       )}
     </div>

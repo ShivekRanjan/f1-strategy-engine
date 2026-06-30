@@ -111,6 +111,9 @@ def test_engine_unknown_track_raises():
 def test_engine_replay_data_serving():
     eng = _synthetic_engine()
     assert eng.seasons(TRACK) == [2024]
+    assert eng.all_seasons() == [2024]
+    assert eng.circuits_for_season(2024) == [TRACK]
+    assert eng.circuits_for_season(2023) == []          # season-first nav: empty year
     assert eng.replay_drivers(TRACK, 2024) == ["AAA"]
     hist = eng.lap_history(TRACK, 2024, "AAA")
     assert hist["lap_min"] == 1 and hist["lap_max"] == 30 and len(hist["laps"]) == 30
@@ -161,6 +164,9 @@ def test_api_endpoints_with_synthetic_engine():
         assert uc.status_code == 200 and "verdict" in uc.json()
 
         assert client.get("/seasons/Test GP").json()["seasons"] == [2024]
+        assert client.get("/seasons").json()["seasons"] == [2024]
+        assert client.get("/circuits/2024").json()["circuits"] == ["Test GP"]
+        assert client.get("/circuits/2023").json()["circuits"] == []
         assert client.get("/drivers/Test GP/2024").json()["drivers"] == ["AAA"]
         lh = client.get("/laps/Test GP/2024/AAA").json()
         assert lh["lap_max"] == 30 and len(lh["laps"]) == 30

@@ -37,6 +37,9 @@ export const api = {
   raceInfo: (track: string) => req<RaceInfo>(`/race/${encodeURIComponent(track)}`),
   seasons: (track: string) =>
     req<{ seasons: number[] }>(`/seasons/${encodeURIComponent(track)}`),
+  allSeasons: () => req<{ seasons: number[] }>("/seasons"),
+  circuits: (season: number) =>
+    req<{ season: number; circuits: string[] }>(`/circuits/${season}`),
   drivers: (track: string, season: number) =>
     req<{ drivers: string[] }>(`/drivers/${encodeURIComponent(track)}/${season}`),
   laps: (track: string, season: number, driver: string) =>

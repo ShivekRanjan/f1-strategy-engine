@@ -173,6 +173,18 @@ def undercut(req: UndercutRequest, engine: StrategyEngine = Depends(get_engine))
 
 
 # ---- race-replay (live view) data endpoints --------------------------------
+@app.get("/seasons")
+def all_seasons(engine: StrategyEngine = Depends(get_engine)) -> dict:
+    """Every season in the data (for season-first navigation)."""
+    return {"seasons": engine.all_seasons()}
+
+
+@app.get("/circuits/{season}")
+def circuits_for_season(season: int, engine: StrategyEngine = Depends(get_engine)) -> dict:
+    """Circuits raced in a given season (the season-specific shortlist)."""
+    return {"season": season, "circuits": engine.circuits_for_season(season)}
+
+
 @app.get("/seasons/{track}")
 def seasons(track: str, engine: StrategyEngine = Depends(get_engine)) -> dict:
     return {"track": track, "seasons": engine.seasons(track)}
