@@ -9,6 +9,7 @@ import type {
   ConstructorProfile,
   DriverIndexRow,
   DriverProfile,
+  NewsResp,
   RaceCardResp,
   RecommendResp,
   SimulateResp,
@@ -119,4 +120,5 @@ export const api = {
     req<DriverProfile>(`/profiles/driver/${encodeURIComponent(code)}`),
   constructorProfile: (team: string) =>
     req<ConstructorProfile>(`/profiles/constructor/${encodeURIComponent(team)}`),
+  news: (limit = 40) => req<NewsResp>(`/news?limit=${limit}`),
 };

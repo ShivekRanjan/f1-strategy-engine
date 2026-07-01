@@ -33,6 +33,7 @@ models = [
 app = [
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.30,<1",
+    "feedparser>=6.0,<7",  # F1 news aggregation (RSS/Atom)
 ]
 # Dev tooling.
 dev = [

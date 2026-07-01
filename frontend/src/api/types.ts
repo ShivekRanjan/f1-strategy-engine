@@ -325,3 +325,17 @@ export interface ConstructorProfile {
   by_season: ConstructorSeasonLine[];
   drivers: ConstructorDriver[];
 }
+
+export interface NewsItem {
+  title: string;
+  link: string;
+  source: string;
+  ts: number | null;
+  summary: string;
+}
+export interface NewsResp {
+  items: NewsItem[];
+  sources: string[];
+  fetched_at: number;
+  cached?: boolean;
+}

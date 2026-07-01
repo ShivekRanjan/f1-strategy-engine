@@ -325,3 +325,11 @@ def profiles_constructor(team: str) -> dict:
     if payload is None:
         raise HTTPException(status_code=404, detail=f"no data for team {team!r}")
     return payload
+
+
+@app.get("/news")
+def news(limit: int = 40) -> dict:
+    """Aggregated F1 headlines (RSS) — link-out only, cached ~10 min."""
+    from f1se.standalone.news import fetch_news
+
+    return fetch_news(limit=limit)

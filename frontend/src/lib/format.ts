@@ -23,6 +23,18 @@ export function pct(p: number): string {
   return `${Math.round(p * 100)}%`;
 }
 
+/** Epoch seconds -> "3h ago" / "2d ago" / "just now". */
+export function timeAgo(ts: number | null): string {
+  if (!ts) return "";
+  const s = Math.max(0, Date.now() / 1000 - ts);
+  if (s < 90) return "just now";
+  const m = s / 60;
+  if (m < 60) return `${Math.round(m)}m ago`;
+  const h = m / 60;
+  if (h < 24) return `${Math.round(h)}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+
 /** "M → H  (pit lap 18)" */
 export function fmtPlan(compounds: string[], pitLaps: number[]): string {
   const base = compounds.join(" → ");
