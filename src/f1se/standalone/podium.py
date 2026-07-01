@@ -30,28 +30,37 @@ def _finished(status: pd.Series) -> pd.Series:
     return s.str.contains("Finished", na=False) | s.str.contains(r"\+\d+ Lap", regex=True, na=False)
 
 
-def build_features(results: pd.DataFrame, *, form_window: int = 5) -> pd.DataFrame:
+def build_features(
+    results: pd.DataFrame, *, form_window: int = 5, recency_halflife: float | None = None
+) -> pd.DataFrame:
     """Add the leakage-safe features and the podium target.
 
     Rolling form is computed per driver/team over *previous* races only
-    (``shift(1)`` before the rolling window), so no future information leaks.
+    (``shift(1)`` before the window), so no future information leaks. When
+    ``recency_halflife`` (races) is given, form is an **exponentially-weighted**
+    mean instead of a flat window, so recent races dominate — catching a team's
+    mid-season step change from car upgrades faster than a flat average would.
     """
     df = results.copy()
     df["podium"] = (df["position"] <= 3).fillna(False).astype(int)
     df["race_idx"] = df["year"].astype(int) * 100 + df["round"].astype(int)
 
+    def _form(s: pd.Series, window: int, hl: float | None) -> pd.Series:
+        prior = s.shift(1)  # previous races only — no leakage
+        if recency_halflife is None:
+            return prior.rolling(window, min_periods=1).mean()
+        return prior.ewm(halflife=hl, min_periods=1).mean()
+
     df = df.sort_values(["driver", "race_idx"])
     g = df.groupby("driver", observed=True)
-    df["driver_form_pos"] = g["position"].transform(
-        lambda s: s.shift(1).rolling(form_window, min_periods=1).mean())
-    df["driver_form_pts"] = g["points"].transform(
-        lambda s: s.shift(1).rolling(form_window, min_periods=1).mean())
-    df["driver_podium_rate"] = g["podium"].transform(
-        lambda s: s.shift(1).rolling(form_window, min_periods=1).mean())
+    df["driver_form_pos"] = g["position"].transform(lambda s: _form(s, form_window, recency_halflife))
+    df["driver_form_pts"] = g["points"].transform(lambda s: _form(s, form_window, recency_halflife))
+    df["driver_podium_rate"] = g["podium"].transform(lambda s: _form(s, form_window, recency_halflife))
 
     df = df.sort_values(["team", "race_idx"])
+    team_hl = None if recency_halflife is None else recency_halflife * 2
     df["team_form_pts"] = df.groupby("team", observed=True)["points"].transform(
-        lambda s: s.shift(1).rolling(form_window * 2, min_periods=1).mean())
+        lambda s: _form(s, form_window * 2, team_hl))
 
     # Sensible fills for a driver/team's first appearances (no prior history).
     df["driver_form_pos"] = df["driver_form_pos"].fillna(15.0)   # assume midfield/back

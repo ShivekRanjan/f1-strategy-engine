@@ -83,12 +83,39 @@ def _stint_demeaned(laps: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     return age_dm, corr_dm
 
 
-def _fe_slope(age_dm: np.ndarray, corr_dm: np.ndarray) -> float | None:
-    """Within-group fixed-effects slope = Σ(x̃ỹ)/Σ(x̃²); None if no age spread."""
-    denom = float(np.sum(age_dm**2))
+def _fe_slope(age_dm: np.ndarray, corr_dm: np.ndarray, w: np.ndarray | None = None) -> float | None:
+    """Within-group fixed-effects slope = Σ(w·x̃ỹ)/Σ(w·x̃²); None if no age spread.
+
+    ``w`` optionally weights each lap (used for recency-weighting, so recent
+    races count more and the fit tracks mid-season pace shifts from upgrades).
+    """
+    if w is None:
+        denom = float(np.sum(age_dm**2))
+        num = float(np.sum(age_dm * corr_dm))
+    else:
+        denom = float(np.sum(w * age_dm**2))
+        num = float(np.sum(w * age_dm * corr_dm))
     if denom == 0:
         return None
-    return float(np.sum(age_dm * corr_dm) / denom)
+    return num / denom
+
+
+def recency_weights(laps: pd.DataFrame, halflife_races: float | None) -> np.ndarray | None:
+    """Per-lap weight decaying by half every ``halflife_races`` races.
+
+    The most recent race in the frame weighs 1.0; a race ``halflife_races`` older
+    weighs 0.5, and so on. ``None`` disables weighting (returns ``None``). This is
+    how the models stay responsive to car upgrades between races without reading
+    any news — a faster post-upgrade car simply shows up in the recent laps.
+    """
+    if halflife_races is None:
+        return None
+    rid = (laps["year"].astype(int) * 100 + laps["round"].astype(int)).to_numpy()
+    uniq = np.unique(rid)                       # ascending; last = most recent
+    rank = {r: i for i, r in enumerate(uniq)}
+    newest = len(uniq) - 1
+    ages = np.array([newest - rank[r] for r in rid], dtype=float)   # 0 = newest race
+    return 0.5 ** (ages / float(halflife_races))
 
 
 def fit_linear_baseline(
@@ -96,6 +123,7 @@ def fit_linear_baseline(
     *,
     group_cols: tuple[str, ...] = DEFAULT_GROUP_COLS,
     min_laps: int = 20,
+    recency_halflife: float | None = None,
 ) -> DegradationModel:
     """Fit per-group within-stint degradation slopes (the baseline).
 
@@ -114,28 +142,42 @@ def fit_linear_baseline(
     age_dm, corr_dm = _stint_demeaned(laps)
     laps["_age_dm"], laps["_corr_dm"] = age_dm, corr_dm
 
+    # Optional recency weighting (recent races count more — tracks upgrades).
+    w_all = recency_weights(laps, recency_halflife)
+    laps["_w"] = 1.0 if w_all is None else w_all
+    use_w = recency_halflife is not None
+
+    def _w(grp: pd.DataFrame) -> np.ndarray | None:
+        return grp["_w"].to_numpy(float) if use_w else None
+
+    def _base(grp: pd.DataFrame, slope: float) -> float:
+        wt = grp["_w"].to_numpy(float) if use_w else None
+        ybar = float(np.average(grp[TARGET_COL].to_numpy(float), weights=wt))
+        abar = float(np.average(grp[AGE_COL].to_numpy(float), weights=wt))
+        return ybar - slope * abar
+
     slopes: dict[tuple, float] = {}
     intercepts: dict[tuple, float] = {}
     for key, grp in laps.groupby(list(group_cols), observed=True):
         if len(grp) < min_laps:
             continue
-        s = _fe_slope(grp["_age_dm"].to_numpy(float), grp["_corr_dm"].to_numpy(float))
+        s = _fe_slope(grp["_age_dm"].to_numpy(float), grp["_corr_dm"].to_numpy(float), _w(grp))
         if s is None:
             continue
         key = key if isinstance(key, tuple) else (key,)
         slopes[key] = s
         # Representative base pace (for plotting/absolute pred on a seen track).
-        intercepts[key] = float(grp[TARGET_COL].mean() - s * grp[AGE_COL].mean())
+        intercepts[key] = _base(grp, s)
 
     compound_slope: dict[str, float] = {}
     for comp, grp in laps.groupby("compound", observed=True):
         if len(grp) < min_laps:
             continue
-        s = _fe_slope(grp["_age_dm"].to_numpy(float), grp["_corr_dm"].to_numpy(float))
+        s = _fe_slope(grp["_age_dm"].to_numpy(float), grp["_corr_dm"].to_numpy(float), _w(grp))
         if s is not None:
             compound_slope[str(comp)] = s
 
-    gslope = _fe_slope(age_dm, corr_dm)
+    gslope = _fe_slope(age_dm, corr_dm, laps["_w"].to_numpy(float) if use_w else None)
     global_slope = gslope if gslope is not None else 0.0
 
     # Base-pace fallbacks for tracks/compounds too thin to fit a per-group
@@ -145,8 +187,8 @@ def fit_linear_baseline(
     track_base: dict[str, float] = {}
     if "event_name" in laps.columns:
         for ev, grp in laps.groupby("event_name", observed=True):
-            track_base[str(ev)] = float(grp[TARGET_COL].mean() - global_slope * grp[AGE_COL].mean())
-    global_base = float(laps[TARGET_COL].mean() - global_slope * laps[AGE_COL].mean())
+            track_base[str(ev)] = _base(grp, global_slope)
+    global_base = _base(laps, global_slope)
 
     return DegradationModel(
         group_cols=tuple(group_cols),

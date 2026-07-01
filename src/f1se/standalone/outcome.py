@@ -44,7 +44,9 @@ def compute_outcome(data_dir: str | Path | None = None, *, n_sims: int = 5000) -
     if fp is None:
         return None
     results = pd.read_parquet(fp)
-    feats = build_features(results)
+    # Recency-weight form (halflife ~4 races) so a team's mid-season upgrade step
+    # shows up quickly instead of being diluted by a flat window.
+    feats = build_features(results, recency_halflife=4.0)
     test_year = int(results["year"].max())
     model = train_podium_model(feats, test_year=test_year)
 

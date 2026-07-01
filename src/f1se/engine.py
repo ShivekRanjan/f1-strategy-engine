@@ -83,7 +83,10 @@ class StrategyEngine:
         deg_model_2026 = None
         if has_2026:
             from f1se.models.era import fit_era_shrunk_degradation
-            deg_model_2026 = fit_era_shrunk_degradation(dry, target_min_year=2026)
+            # Recency-weight the 2026 estimate (halflife ~4 races) so the slopes
+            # track mid-season car upgrades instead of averaging the season flat.
+            deg_model_2026 = fit_era_shrunk_degradation(
+                dry, target_min_year=2026, recency_halflife=4.0)
         total_laps = dry.groupby("event_name", observed=True)["lap_number"].max().astype(int).to_dict()
         limits = compound_stint_limits(dry)
 
