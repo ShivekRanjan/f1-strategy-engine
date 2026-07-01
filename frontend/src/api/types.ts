@@ -208,3 +208,33 @@ export interface StandingsResp {
   drivers: DriverStanding[];
   constructors: ConstructorStanding[];
 }
+
+export interface RaceResultRow {
+  pos: number | null;
+  driver: string;
+  team: string;
+  grid: number | null;
+  points: number | null;
+  status: string;
+  gained: number | null;
+}
+export interface RaceCardPred {
+  driver: string;
+  team: string;
+  grid: number;
+  podium_prob: number;
+  actual: boolean;
+}
+export interface RaceCardPrediction {
+  predictions: RaceCardPred[];
+  hit_at_3: number;
+  auc: number;
+}
+export interface RaceCardResp {
+  season: number;
+  round: number;
+  event_name: string;
+  result: RaceResultRow[];
+  actual_podium: string[];
+  prediction: RaceCardPrediction | null;
+}

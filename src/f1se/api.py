@@ -272,3 +272,15 @@ def standings(season: int | None = None) -> dict:
     if payload is None:
         raise HTTPException(status_code=404, detail="results dataset not available")
     return payload
+
+
+@app.get("/race_card/{season}/{track}")
+def race_card(season: int, track: str) -> dict:
+    """One race's finishing order + the podium model's pre-race prediction (for the
+    Race Hub — the strategy call and degradation curves are separate endpoints)."""
+    from f1se.standalone.races import cached_race_card
+
+    payload = cached_race_card(season, track)
+    if payload is None:
+        raise HTTPException(status_code=404, detail=f"no race data for {track!r} {season}")
+    return payload

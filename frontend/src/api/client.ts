@@ -5,6 +5,7 @@ import type {
   LiveResp,
   OutcomeResp,
   RaceInfo,
+  RaceCardResp,
   RecommendResp,
   SimulateResp,
   StandingsResp,
@@ -106,4 +107,6 @@ export const api = {
     post<UpcomingResp>("/predict_upcoming", { grid: grid ?? null }),
   standings: (season?: number) =>
     req<StandingsResp>(`/standings${season != null ? `?season=${season}` : ""}`),
+  raceCard: (season: number, track: string) =>
+    req<RaceCardResp>(`/race_card/${season}/${encodeURIComponent(track)}`),
 };
