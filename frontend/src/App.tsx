@@ -2,6 +2,7 @@ import { useState } from "react";
 import StrategyView from "./views/StrategyView";
 import UndercutView from "./views/UndercutView";
 import OutcomeView from "./views/OutcomeView";
+import StandingsView from "./views/StandingsView";
 import LiveView from "./views/LiveView";
 
 const REPO = "https://github.com/ShivekRanjan/f1-strategy-engine";
@@ -10,6 +11,7 @@ const TABS = [
   { id: "strategy", label: "Strategy", el: <StrategyView /> },
   { id: "undercut", label: "Undercut", el: <UndercutView /> },
   { id: "outcome", label: "Outcome", el: <OutcomeView /> },
+  { id: "standings", label: "Standings", el: <StandingsView /> },
   { id: "live", label: "Live Race", el: <LiveView /> },
 ] as const;
 

@@ -50,3 +50,25 @@ export const COMPOUND_COLOR: Record<string, string> = {
 export function compoundColor(c: string): string {
   return COMPOUND_COLOR[c?.toUpperCase()] ?? "#9a9aa6";
 }
+
+// Team liveries (substring-matched so "Red Bull Racing", "RB", etc. all resolve).
+export const TEAM_COLOR: Record<string, string> = {
+  mercedes: "#27f4d2",
+  ferrari: "#e8002d",
+  "red bull": "#3671c6",
+  mclaren: "#ff8000",
+  alpine: "#0093cc",
+  aston: "#229971",
+  williams: "#64c4ff",
+  haas: "#b6babd",
+  sauber: "#52e252",
+  audi: "#52e252",
+  "racing bulls": "#6692ff",
+  alphatauri: "#6692ff",
+};
+
+export function teamColor(team: string): string {
+  const t = (team || "").toLowerCase();
+  for (const key in TEAM_COLOR) if (t.includes(key)) return TEAM_COLOR[key];
+  return "#9a9aa6";
+}

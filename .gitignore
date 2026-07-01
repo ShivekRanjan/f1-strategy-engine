@@ -61,3 +61,6 @@ node_modules/
 
 # dev server logs (uvicorn.log, frontend/vite.log, ...)
 *.log
+
+# personal scratch notes (kept locally, not in the repo)
+to run frend and bkend.txt

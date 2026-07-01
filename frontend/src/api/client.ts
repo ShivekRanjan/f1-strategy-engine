@@ -7,6 +7,7 @@ import type {
   RaceInfo,
   RecommendResp,
   SimulateResp,
+  StandingsResp,
   TrackInfo,
   UndercutResp,
   UpcomingResp,
@@ -103,4 +104,6 @@ export const api = {
   outcome: () => req<OutcomeResp>("/outcome"),
   predictUpcoming: (grid?: Record<string, number>) =>
     post<UpcomingResp>("/predict_upcoming", { grid: grid ?? null }),
+  standings: (season?: number) =>
+    req<StandingsResp>(`/standings${season != null ? `?season=${season}` : ""}`),
 };

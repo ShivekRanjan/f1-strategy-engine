@@ -260,3 +260,15 @@ def predict_upcoming(req: UpcomingRequest) -> dict:
     if payload is None:
         raise HTTPException(status_code=404, detail="results dataset not available")
     return payload
+
+
+@app.get("/standings")
+def standings(season: int | None = None) -> dict:
+    """Driver + constructor standings for a season (default latest), with a live
+    title-win probability per driver when the season is still in progress."""
+    from f1se.standalone.standings import cached_standings
+
+    payload = cached_standings(season)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="results dataset not available")
+    return payload

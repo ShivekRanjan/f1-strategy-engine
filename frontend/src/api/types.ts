@@ -180,3 +180,31 @@ export interface UpcomingResp {
   grid_source: string;
   predictions: UpcomingPred[];
 }
+
+export interface DriverStanding {
+  pos: number;
+  driver: string;
+  team: string;
+  points: number;
+  wins: number;
+  podiums: number;
+  races: number;
+  win_prob?: number | null;
+}
+export interface ConstructorStanding {
+  pos: number;
+  team: string;
+  points: number;
+  wins: number;
+  podiums: number;
+}
+export interface StandingsResp {
+  season: number;
+  seasons: number[];
+  latest: number;
+  races_done: number;
+  total_races: number;
+  ongoing: boolean;
+  drivers: DriverStanding[];
+  constructors: ConstructorStanding[];
+}
