@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from f1se.models.degradation import fit_linear_baseline, recency_weights
+from f1se.models.era import fit_era_shrunk_degradation
 from f1se.standalone.podium import build_features
 
 
@@ -47,3 +48,29 @@ def test_form_recency_reacts_faster_to_a_step_change():
     last_flat = flat[flat["round"] == 6]["driver_form_pos"].iloc[0]
     last_rec = rec[rec["round"] == 6]["driver_form_pos"].iloc[0]
     assert last_rec < last_flat   # recency sees the step change sooner (better form)
+
+
+def _race(event: str, year: int, rnd: int, slope: float, n_stints: int = 3) -> pd.DataFrame:
+    frames = []
+    for st in range(1, n_stints + 1):
+        ages = np.arange(1, 16)
+        frames.append(pd.DataFrame({
+            "year": year, "round": rnd, "event_name": event, "driver": f"D{st}", "stint": st,
+            "compound": "MEDIUM", "tyre_life": ages.astype(float),
+            "lap_time_fuel_corr_s": 90.0 + slope * ages,
+        }))
+    return pd.concat(frames, ignore_index=True)
+
+
+def test_era_shift_propagates_to_a_track_not_yet_raced_in_the_new_era():
+    # OldGP ran pre-era only; the new era (2026) degrades much harder (0.15 vs 0.05).
+    # OldGP has NO 2026 data, yet its slope must inherit the regime shift so a 2026
+    # prediction for it isn't stuck on the stale pre-reset value.
+    laps = pd.concat([
+        _race("OldGP", 2024, 1, 0.05),
+        _race("NewGP", 2025, 2, 0.05),
+        _race("NewGP", 2026, 3, 0.15),
+    ], ignore_index=True)
+    prior = fit_linear_baseline(laps[laps.year < 2026], min_laps=10)
+    shrunk = fit_era_shrunk_degradation(laps, target_min_year=2026, min_laps=10, shrinkage_laps=10.0)
+    assert shrunk.slope("MEDIUM", "OldGP") > prior.slope("MEDIUM", "OldGP")

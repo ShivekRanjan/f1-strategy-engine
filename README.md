@@ -36,6 +36,7 @@ documented rather than deleted; one did, and it's here too:
 | **Validation is leakage-safe by construction** — laps within a race are near-duplicates, so splits are GroupKFold-by-race plus a forward-in-time holdout; a shuffled split would inflate every score | `f1se/validation.py`, tested |
 | **2026's regulation reset breaks old models** — a pre-2026 degradation model barely beats "no degradation" on 2026 laps (+3%); blending 2026 data with the old prior via shrinkage recovers the signal (+16%) | `analysis/phase_2026_validation.py` |
 | **An LSTM *did* earn its place** — for next-lap pace forecasting it beats persistence by ~8.5% (0.306 vs 0.335s MAE on held-out 2025) by damping per-lap noise and anticipating tyre warm-up. The one case where complexity won, on the same footing — and it's live in the app (exported torch-free to a 28 KB numpy artifact) | `analysis/phase2_5_sequence.py` |
+| **Validated on a race the models never saw** (Austrian GP 2026, in no training data) — LSTM nowcast **+18%** vs persistence, podium model **2/3** vs the grid's 1/3; a strategy miss surfaced (and fixed) a real degradation gap, and the model even flagged the underused softs a driver called out post-race | `analysis/backtest_austria_2026.py` |
 
 Full receipts — figures, numbers, and how to reproduce each one — in
 **[docs/METHODOLOGY.md](docs/METHODOLOGY.md)**.

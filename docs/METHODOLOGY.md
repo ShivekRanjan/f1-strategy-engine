@@ -186,6 +186,44 @@ without the heavy dependency.
 
 *Reproduce: `analysis/phase2_5_sequence.py`*
 
+## 9. The real test: a race the models had never seen (Austrian GP 2026)
+
+Held-out *seasons* are one thing; a brand-new race is the honest one. The Austrian
+GP 2026 is in **none** of the committed data, so it's a clean out-of-sample check
+of the whole build at once — pulled from FastF1 and compared to what actually
+happened (winner **RUS**, from a medium → hard → hard 2-stop).
+
+| Check | Result |
+|---|---|
+| **Strategy — race shape** | ✅ engine got 71 laps and a **2-stop** (15 of 19 finishers 2-stopped) |
+| **Strategy — compound pick** | ❌ engine's compounds differed from the winner's |
+| **LSTM nowcast** | ✅ **+18.2%** vs persistence (0.31 vs 0.38 s) — *better* than its 2025 holdout |
+| **Podium model** | ✅ **2/3** correct (RUS, ANT) vs the grid baseline's **1/3** |
+| **Degradation** | ~ right ballpark, but slopes ran gentle (model MEDIUM 0.081 vs actual 0.097 s/lap) |
+
+The strategy compound miss traced straight to the degradation under-estimate:
+the model thought the mediums were more durable than they were, so it over-valued
+running them. That exposed a real gap — a track raced in 2023–25 but not yet in
+2026 kept its **stale pre-reset slope**, ignoring the regulation change entirely.
+
+**The fix (regime- and recency-aware degradation).** Two changes, both principled:
+recency-weight the target-era estimate (recent races weigh more, so mid-season
+**car upgrades** propagate in 1–2 races instead of being averaged flat), and
+propagate the compound-level 2026 era shift onto tracks not yet run in 2026. After
+this, Austria's slopes moved measurably closer to the truth on all three compounds.
+
+**The twist that validated it.** The updated model then recommended a **soft**
+middle stint — which looked wrong (the field avoided softs) until the data was
+actually checked: soft degradation at Austria was the **lowest** of the three
+(0.060 vs medium 0.097, hard 0.088 s/lap), over 130 laps and 7 drivers. The
+model's soft lean was a *real* signal, not noise — and it matched a driver's
+post-race comment that the softs were quick and the teams didn't commit to them.
+Honest caveat: the winner still won on hards, so softs were a genuine *underused
+option*, not proven optimal — exactly the kind of edge a strategy tool should
+surface for humans to weigh.
+
+*Reproduce: `analysis/backtest_austria_2026.py` (network — pulls the race from FastF1)*
+
 ---
 
 ### The pattern
