@@ -339,3 +339,24 @@ export interface NewsResp {
   fetched_at: number;
   cached?: boolean;
 }
+
+export interface CalendarSession {
+  name: string;
+  date: string;
+}
+export interface CalendarRound {
+  round: number;
+  event_name: string;
+  country: string;
+  location: string;
+  event_date: string | null;
+  format: string;
+  sessions: CalendarSession[];
+  done: boolean;
+}
+export interface CalendarResp {
+  season: number;
+  rounds: CalendarRound[];
+  next_round: number | null;
+  next_session: { round: number; event_name: string; name: string; date: string } | null;
+}

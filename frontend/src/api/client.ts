@@ -5,6 +5,7 @@ import type {
   LiveResp,
   OutcomeResp,
   RaceInfo,
+  CalendarResp,
   ConstructorIndexRow,
   ConstructorProfile,
   DriverIndexRow,
@@ -121,4 +122,5 @@ export const api = {
   constructorProfile: (team: string) =>
     req<ConstructorProfile>(`/profiles/constructor/${encodeURIComponent(team)}`),
   news: (limit = 40) => req<NewsResp>(`/news?limit=${limit}`),
+  calendar: (season: number) => req<CalendarResp>(`/calendar/${season}`),
 };

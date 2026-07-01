@@ -333,3 +333,14 @@ def news(limit: int = 40) -> dict:
     from f1se.standalone.news import fetch_news
 
     return fetch_news(limit=limit)
+
+
+@app.get("/calendar/{season}")
+def calendar(season: int) -> dict:
+    """Season race calendar: rounds, circuits, session times, next-race countdown."""
+    from f1se.standalone.schedule import cached_calendar
+
+    payload = cached_calendar(season)
+    if payload is None:
+        raise HTTPException(status_code=503, detail="schedule unavailable (offline?)")
+    return payload
