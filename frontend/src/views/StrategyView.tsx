@@ -47,6 +47,7 @@ function Dashboard({ tracks }: { tracks: TrackInfo[] }) {
   const [objective, setObjective] = useState("mean");
   const [maxStops, setMaxStops] = useState(2);
   const [cliff, setCliff] = useState(true);
+  const [trackTemp, setTrackTemp] = useState(35);
 
   const seasons = useAsync(() => api.seasons(track), [track]);
   useEffect(() => {
@@ -54,12 +55,14 @@ function Dashboard({ tracks }: { tracks: TrackInfo[] }) {
   }, [seasons.data]);
 
   const stops = useDebounced(maxStops, 200);
+  const temp = useDebounced(trackTemp, 250);
   const rec = useAsync(
     () =>
       season == null
         ? Promise.resolve(null)
-        : api.recommend({ track, season, objective, max_stops: stops, use_cliff: cliff, n_runs: 2000, top_k: 7 }),
-    [track, season, objective, stops, cliff],
+        : api.recommend({ track, season, objective, max_stops: stops, use_cliff: cliff,
+                          track_temp: temp, n_runs: 2000, top_k: 7 }),
+    [track, season, objective, stops, cliff, temp],
   );
   const best = rec.data?.best;
   const sim = useAsync(
@@ -89,6 +92,8 @@ function Dashboard({ tracks }: { tracks: TrackInfo[] }) {
         setMaxStops={setMaxStops}
         cliff={cliff}
         setCliff={setCliff}
+        trackTemp={trackTemp}
+        setTrackTemp={setTrackTemp}
         info={rec.data}
       />
       <div className="space-y-5">
@@ -123,6 +128,8 @@ function Rail(props: {
   setMaxStops: (n: number) => void;
   cliff: boolean;
   setCliff: (b: boolean) => void;
+  trackTemp: number;
+  setTrackTemp: (n: number) => void;
   info: RecommendResp | null | undefined;
 }) {
   const p = props;
@@ -171,6 +178,13 @@ function Rail(props: {
       <Field label={`Max stops · ${p.maxStops}`}>
         <Slider value={p.maxStops} min={1} max={3} onChange={p.setMaxStops}
                 display={`${p.maxStops} stop${p.maxStops > 1 ? "s" : ""}`} />
+      </Field>
+
+      <Field label={`Track temp · ${p.trackTemp}°C`}>
+        <Slider value={p.trackTemp} min={15} max={55} onChange={p.setTrackTemp}
+                display={p.trackTemp < 30 ? `${p.trackTemp}°C · cool → less wear`
+                  : p.trackTemp > 42 ? `${p.trackTemp}°C · hot → more wear`
+                  : `${p.trackTemp}°C`} />
       </Field>
 
       <button

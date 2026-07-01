@@ -27,6 +27,20 @@ PROC = PROJECT_ROOT / "data" / "processed"
 COMPS = ["SOFT", "MEDIUM", "HARD"]
 
 
+def track_temp(year: int, rnd: int) -> float | None:
+    """Mean track temperature (°C) for a race, from FastF1 weather (cached)."""
+    from f1se.config import enable_cache
+    enable_cache()
+    import fastf1
+    try:
+        s = fastf1.get_session(year, int(rnd), "R")
+        s.load(laps=False, telemetry=False, weather=True, messages=False)
+        w = s.weather_data
+        return float(w["TrackTemp"].mean()) if w is not None and len(w) else None
+    except Exception:
+        return None
+
+
 def winner_strategy(race_laps: pd.DataFrame, driver: str):
     """Compound sequence + approx pit laps for one driver, from cleaned laps."""
     d = race_laps[race_laps["driver"] == driver].sort_values("lap_number")
@@ -46,7 +60,7 @@ def main() -> None:
     rounds = sorted(r26["round"].unique())
     print(f"2026 races in dataset: {len(rounds)} (rounds {rounds[0]}–{rounds[-1]})\n")
 
-    hdr = (f"{'race':<22}{'eng':>5}{'win':>5}{'fld':>5}  "
+    hdr = (f"{'race':<22}{'°C':>5}{'eng':>5}{'win':>5}{'fld':>5}  "
            f"{'engine pick':<14}{'winner':<12}{'vsWin':>7}{'vsFld':>7}{'degMAE':>8}")
     print(hdr)
     print("-" * len(hdr))
@@ -64,12 +78,14 @@ def main() -> None:
         if not wseq:
             continue
 
-        # Leave-one-race-out degradation model, then recommend for this track.
+        # Leave-one-race-out degradation model, then recommend for this track
+        # at its actual track temperature (thermal prior).
         loo = fit_era_shrunk_degradation(
             dry[~((dry.year == 2026) & (dry["round"] == rnd))],
             target_min_year=2026, recency_halflife=4.0)
         eng = replace(base, deg_model_2026=loo)
-        rec = eng.recommend(track, season=2026, n_runs=3000)["best"]
+        temp = track_temp(2026, int(rnd))
+        rec = eng.recommend(track, season=2026, n_runs=3000, track_temp=temp)["best"]
 
         # Degradation: actual (this race) vs leave-one-out model, per compound.
         slopes = fit_stint_slopes(race.assign(race=track))
@@ -91,7 +107,7 @@ def main() -> None:
         deg_maes += deg_mae
         n += 1
 
-        print(f"{track[:21]:<22}{eng_stops:>5}{len(wpits):>5}{field_mode:>5}  "
+        print(f"{track[:21]:<22}{(temp if temp else 0):>5.0f}{eng_stops:>5}{len(wpits):>5}{field_mode:>5}  "
               f"{'-'.join(c[0] for c in rec['compounds']):<14}{'-'.join(c[0] for c in wseq):<12}"
               f"{'OK' if stops_match else 'x':>7}{'OK' if field_match else 'x':>7}{deg_mae:>8.4f}")
 
@@ -101,12 +117,13 @@ def main() -> None:
     print(f"  stop-count vs field-dominant : {field_hit}/{n} ({100*field_hit/n:.0f}%)")
     print(f"  exact tyre set vs winner     : {tyre_hit}/{n} ({100*tyre_hit/n:.0f}%)")
     print(f"  degradation MAE (leave-one-out): {deg_maes/n:.4f} s/lap")
-    print("\nRead honestly: a per-stop track-position prior (OvertakingPrior) now charges each stop the\n"
-          "cost the free-air sim omits. It cleanly fixes the textbook case (Suzuka: hard to overtake,\n"
-          "field one-stops) but is NOT the main story — the bulk of over-stopping is at EASY-to-\n"
-          "overtake circuits (Australia/China/Canada), so it's a pace/degradation-calibration matter,\n"
-          "not track position. Pushing the prior harder just under-stops genuine high-deg 2-stop\n"
-          "tracks (Barcelona). Kept as a principled nudge, honest about its limits.")
+    print("\nRead honestly: the over-stopping was mostly a WEATHER effect. The pooled degradation model\n"
+          "assumes an average track temp, so it over-predicts wear on cool days (China 23°C, Canada\n"
+          "18°C) -> over-values a 2-stop, and under-predicts on hot ones (Barcelona 50°C). The thermal\n"
+          "prior shifts degradation with track temp and fixes most of it (field-match 4/8 -> 7/8),\n"
+          "including undoing the earlier Barcelona regression. The small track-position prior handles\n"
+          "the one genuinely-processional case (Suzuka). Canada (coldest, but genuinely tyre-hard) is\n"
+          "the honest remaining miss.")
 
 
 if __name__ == "__main__":

@@ -65,6 +65,7 @@ export const api = {
     top_k?: number;
     season?: number | null;
     sc_scale?: number;
+    track_temp?: number | null;
   }) => post<RecommendResp>("/recommend", body),
 
   simulate: (body: {

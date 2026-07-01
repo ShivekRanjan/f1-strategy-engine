@@ -25,6 +25,7 @@ from f1se.eda import compound_stint_limits, estimate_pit_loss
 from f1se.models.cliff import CliffPrior
 from f1se.models.degradation import DegradationModel, fit_linear_baseline
 from f1se.models.overtaking import OvertakingPrior
+from f1se.models.thermal import ThermalPrior
 from f1se.sim.optimize import recommend_strategy
 from f1se.sim.safety_car import SafetyCarModel, calibrate_per_track
 from f1se.sim.simulate import Strategy, pace_fn_from_model, simulate_race
@@ -51,6 +52,8 @@ class StrategyEngine:
     forecaster: object | None = None
     # Track-position prior — the per-stop cost the free-air sim omits.
     overtaking: OvertakingPrior = field(default_factory=OvertakingPrior)
+    # Thermal prior — track temperature shifts tyre degradation.
+    thermal: ThermalPrior = field(default_factory=ThermalPrior)
 
     # ---- construction --------------------------------------------------------
     @staticmethod
@@ -193,9 +196,11 @@ class StrategyEngine:
             return self.deg_model_2026
         return self.deg_model
 
-    def _pace_fn(self, track: str, total_laps: int, use_cliff: bool, season: int | None = None):
+    def _pace_fn(self, track: str, total_laps: int, use_cliff: bool, season: int | None = None,
+                 deg_slope_delta: float = 0.0):
         cliff = CliffPrior() if use_cliff else None
-        return pace_fn_from_model(self._model_for(season), track, total_laps, cliff=cliff)
+        return pace_fn_from_model(self._model_for(season), track, total_laps, cliff=cliff,
+                                  deg_slope_delta=deg_slope_delta)
 
     def recommend(
         self,
@@ -210,6 +215,7 @@ class StrategyEngine:
         season: int | None = None,
         sc_scale: float = 1.0,
         use_overtaking: bool = True,
+        track_temp: float | None = None,
     ) -> dict:
         """Recommend a strategy for ``track`` with a ranked, uncertainty-aware shortlist.
 
@@ -217,9 +223,12 @@ class StrategyEngine:
         2 = double the risk) for sensitivity analysis of the recommendation.
         ``use_overtaking`` charges each pit stop the track-position prior's cost so
         the free-air optimiser doesn't over-stop (on by default).
+        ``track_temp`` (°C) applies the thermal prior — a cool track degrades less
+        (fewer stops), a hot track more; ``None`` leaves degradation unadjusted.
         """
         total_laps = self._total_laps(track)
-        pace_fn = self._pace_fn(track, total_laps, use_cliff, season)
+        delta = self.thermal.slope_delta(track_temp)
+        pace_fn = self._pace_fn(track, total_laps, use_cliff, season, deg_slope_delta=delta)
         pit_loss = self._pit_loss(track)
         res = recommend_strategy(
             total_laps, pace_fn,

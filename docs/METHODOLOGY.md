@@ -249,7 +249,22 @@ is a pace/degradation-calibration matter, not track position, and pushing the
 prior harder just under-stops genuine high-degradation two-stop tracks. Kept on by
 default, documented for exactly what it does and doesn't do.
 
-*Reproduce: `analysis/backtest_2026_season.py`*
+**Then the real cause: weather.** Digging past the track-position red herring, the
+model's per-race degradation error lined up cleanly with **track temperature** — it
+*over*-predicts wear on a cool day (China 23 °C, Canada 18 °C) and *under*-predicts
+on a hot one (Barcelona 50 °C), because the pooled fit assumes an average
+temperature. That mis-estimate is what made the optimiser over-stop at cool races
+and under-rate the genuine multi-stop at hot ones. The fix is a
+[`ThermalPrior`](../src/f1se/models/thermal.py) that shifts the degradation slope
+with track temperature (direction is physics, magnitude data-informed — a labelled
+prior, like the cliff). Feeding each race its real temperature lifted the
+field-dominant stop-count match from **4/8 to 7/8** (and 3/8 → 6/8 vs the winner) —
+and, satisfyingly, *undid* the Barcelona regression the overtaking prior had caused.
+It's a live control in the app: an **expected-track-temp slider** on the Strategy
+tab — cooler ⇒ fewer stops, hotter ⇒ more. Canada (coldest, but genuinely
+tyre-punishing) is the one honest miss that remains.
+
+*Reproduce: `analysis/backtest_2026_season.py` (uses each race's FastF1 track temp)*
 
 ---
 

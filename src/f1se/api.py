@@ -49,6 +49,7 @@ class RecommendRequest(BaseModel):
     top_k: int = Field(5, ge=1, le=20)
     season: int | None = Field(None, description="e.g. 2026 selects the new-regs model")
     sc_scale: float = Field(1.0, ge=0.0, le=3.0, description="scale SC hazard (0 = no SC)")
+    track_temp: float | None = Field(None, ge=0, le=70, description="expected track temp °C")
 
 
 class SimulateRequest(BaseModel):
@@ -137,7 +138,7 @@ def recommend(req: RecommendRequest, engine: StrategyEngine = Depends(get_engine
         return engine.recommend(
             req.track, objective=req.objective, use_cliff=req.use_cliff,
             max_stops=req.max_stops, n_runs=req.n_runs, top_k=req.top_k,
-            season=req.season, sc_scale=req.sc_scale,
+            season=req.season, sc_scale=req.sc_scale, track_temp=req.track_temp,
         )
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

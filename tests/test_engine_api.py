@@ -156,7 +156,8 @@ def test_api_endpoints_with_synthetic_engine():
         assert client.get("/race/Test GP").json()["total_laps"] == 40
         assert client.get("/race/Nowhere").status_code == 404
 
-        r = client.post("/recommend", json={"track": "Test GP", "n_runs": 300, "top_k": 3})
+        r = client.post("/recommend", json={"track": "Test GP", "n_runs": 300, "top_k": 3,
+                                            "track_temp": 20})
         assert r.status_code == 200
         body = r.json()
         assert len(body["shortlist"]) == 3 and len(body["best"]["compounds"]) >= 2
