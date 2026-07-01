@@ -238,3 +238,90 @@ export interface RaceCardResp {
   actual_podium: string[];
   prediction: RaceCardPrediction | null;
 }
+
+export interface DriverIndexRow {
+  driver: string;
+  team: string;
+  last_season: number;
+  seasons: number[];
+  points: number | null;
+  wins: number;
+}
+export interface ConstructorIndexRow {
+  team: string;
+  last_season: number;
+  seasons: number[];
+  points: number | null;
+  wins: number;
+}
+export interface DriverSeasonLine {
+  season: number;
+  team: string;
+  races: number;
+  wins: number;
+  podiums: number;
+  points: number | null;
+  avg_grid: number | null;
+  avg_finish: number | null;
+  best: number | null;
+  dnf: number;
+}
+export interface RecentResult {
+  season: number;
+  round: number;
+  event_name: string;
+  grid: number | null;
+  position: number | null;
+  points: number | null;
+  status: string;
+}
+export interface TeammateH2H {
+  teammate: string;
+  quali_races: number;
+  quali_ahead: number;
+  race_races: number;
+  race_ahead: number;
+  pts_self: number | null;
+  pts_mate: number | null;
+}
+export interface DriverProfile {
+  driver: string;
+  team: string;
+  seasons: number[];
+  career: {
+    races: number;
+    wins: number;
+    podiums: number;
+    points: number | null;
+    avg_grid: number | null;
+    avg_finish: number | null;
+    best: number | null;
+    dnf: number;
+  };
+  by_season: DriverSeasonLine[];
+  recent: RecentResult[];
+  h2h_season: number;
+  teammate_h2h: TeammateH2H[];
+}
+export interface ConstructorSeasonLine {
+  season: number;
+  races: number;
+  wins: number;
+  podiums: number;
+  points: number | null;
+  best: number | null;
+  drivers: string[];
+}
+export interface ConstructorDriver {
+  driver: string;
+  points: number | null;
+  wins: number;
+  seasons: number[];
+}
+export interface ConstructorProfile {
+  team: string;
+  seasons: number[];
+  career: { races: number; wins: number; podiums: number; points: number | null; best: number | null };
+  by_season: ConstructorSeasonLine[];
+  drivers: ConstructorDriver[];
+}

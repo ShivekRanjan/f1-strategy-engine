@@ -5,6 +5,10 @@ import type {
   LiveResp,
   OutcomeResp,
   RaceInfo,
+  ConstructorIndexRow,
+  ConstructorProfile,
+  DriverIndexRow,
+  DriverProfile,
   RaceCardResp,
   RecommendResp,
   SimulateResp,
@@ -109,4 +113,10 @@ export const api = {
     req<StandingsResp>(`/standings${season != null ? `?season=${season}` : ""}`),
   raceCard: (season: number, track: string) =>
     req<RaceCardResp>(`/race_card/${season}/${encodeURIComponent(track)}`),
+  driversIndex: () => req<{ drivers: DriverIndexRow[] }>("/profiles/drivers"),
+  constructorsIndex: () => req<{ constructors: ConstructorIndexRow[] }>("/profiles/constructors"),
+  driverProfile: (code: string) =>
+    req<DriverProfile>(`/profiles/driver/${encodeURIComponent(code)}`),
+  constructorProfile: (team: string) =>
+    req<ConstructorProfile>(`/profiles/constructor/${encodeURIComponent(team)}`),
 };

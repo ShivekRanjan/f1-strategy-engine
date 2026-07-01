@@ -284,3 +284,44 @@ def race_card(season: int, track: str) -> dict:
     if payload is None:
         raise HTTPException(status_code=404, detail=f"no race data for {track!r} {season}")
     return payload
+
+
+# ---- driver / constructor profiles -----------------------------------------
+@app.get("/profiles/drivers")
+def profiles_drivers() -> dict:
+    from f1se.standalone.profiles import cached_drivers_index
+
+    idx = cached_drivers_index()
+    if idx is None:
+        raise HTTPException(status_code=404, detail="results dataset not available")
+    return {"drivers": idx}
+
+
+@app.get("/profiles/constructors")
+def profiles_constructors() -> dict:
+    from f1se.standalone.profiles import cached_constructors_index
+
+    idx = cached_constructors_index()
+    if idx is None:
+        raise HTTPException(status_code=404, detail="results dataset not available")
+    return {"constructors": idx}
+
+
+@app.get("/profiles/driver/{code}")
+def profiles_driver(code: str) -> dict:
+    from f1se.standalone.profiles import cached_driver_profile
+
+    payload = cached_driver_profile(code)
+    if payload is None:
+        raise HTTPException(status_code=404, detail=f"no data for driver {code!r}")
+    return payload
+
+
+@app.get("/profiles/constructor/{team}")
+def profiles_constructor(team: str) -> dict:
+    from f1se.standalone.profiles import cached_constructor_profile
+
+    payload = cached_constructor_profile(team)
+    if payload is None:
+        raise HTTPException(status_code=404, detail=f"no data for team {team!r}")
+    return payload
