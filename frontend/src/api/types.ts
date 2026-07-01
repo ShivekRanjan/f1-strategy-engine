@@ -167,3 +167,16 @@ export interface OutcomeResp {
   };
   rounds: OutcomeRound[];
 }
+
+export interface UpcomingPred {
+  driver: string;
+  team: string;
+  grid: number;
+  podium_prob: number;
+}
+export interface UpcomingResp {
+  season: number;
+  next_round: number;
+  grid_source: string;
+  predictions: UpcomingPred[];
+}

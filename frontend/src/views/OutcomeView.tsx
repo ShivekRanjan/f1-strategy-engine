@@ -13,8 +13,8 @@ import { Column, DataTable } from "../components/DataTable";
 import { Field, Slider } from "../components/controls";
 import { Badge, Callout, Card, ErrorNote, Metric, SectionTitle, Spinner } from "../components/ui";
 import { pct } from "../lib/format";
-import { useAsync } from "../lib/useAsync";
-import type { OutcomeResp, PodiumPred } from "../api/types";
+import { useAsync, useDebounced } from "../lib/useAsync";
+import type { OutcomeResp, PodiumPred, UpcomingPred, UpcomingResp } from "../api/types";
 import { ViewIntro } from "./common";
 
 export default function OutcomeView() {
@@ -22,9 +22,9 @@ export default function OutcomeView() {
   return (
     <div className="space-y-5">
       <ViewIntro>
-        Title odds and per-race podium probabilities — forward-tested (never a shuffled split). The
-        championship sim <em>bootstraps driver strength</em>, so a few-race leader doesn’t show a
-        dishonest 100%.
+        Title odds, a live <strong>next-race prediction</strong>, and the podium model’s track record
+        on races already run (a forward test — never a shuffled split). The championship sim{" "}
+        <em>bootstraps driver strength</em>, so a few-race leader doesn’t show a dishonest 100%.
       </ViewIntro>
       {o.error && <ErrorNote error={o.error} />}
       {!o.data && !o.error && <Spinner label="Training the podium model & simulating the title…" />}
@@ -74,7 +74,98 @@ function Body({ o }: { o: OutcomeResp }) {
         )}
       </Card>
 
+      <UpcomingRace />
       <PodiumSection o={o} />
+    </>
+  );
+}
+
+// --- Next race — a real forward prediction (not yet raced) -------------------
+function UpcomingRace() {
+  const [override, setOverride] = useState<Record<string, number>>({});
+  const grid = useDebounced(override, 300);
+  const up = useAsync(
+    () => api.predictUpcoming(Object.keys(grid).length ? grid : undefined),
+    [JSON.stringify(grid)],
+  );
+
+  return (
+    <Card className="border-l-2 border-l-accent p-4">
+      <SectionTitle>
+        🔮 Next race — predicted podium{" "}
+        {up.data && <Badge tone="red">round {up.data.next_round} · not yet raced</Badge>}
+      </SectionTitle>
+      {up.error && <ErrorNote error={up.error} />}
+      {!up.data && !up.error && <Spinner label="Predicting the next race…" />}
+      {up.data && <UpcomingBody data={up.data} override={override} setOverride={setOverride} />}
+      <Callout>
+        The model uses <em>starting grid + current form</em> (no circuit-specific input). The grid
+        defaults to each driver’s qualifying form so far — <strong>edit a grid position</strong> to
+        match the real grid once qualifying is out, and the podium updates live.
+      </Callout>
+    </Card>
+  );
+}
+
+function UpcomingBody({
+  data,
+  override,
+  setOverride,
+}: {
+  data: UpcomingResp;
+  override: Record<string, number>;
+  setOverride: (o: Record<string, number>) => void;
+}) {
+  const podium = data.predictions.slice(0, 3);
+  const setGrid = (driver: string, pos: number) =>
+    setOverride({ ...override, [driver]: pos });
+
+  const cols: Column<UpcomingPred>[] = [
+    { key: "driver", header: "Driver", render: (p) => <span className="font-600">{p.driver}</span> },
+    { key: "team", header: "Team", render: (p) => <span className="text-ink-muted">{p.team}</span> },
+    {
+      key: "grid",
+      header: "Grid",
+      align: "center",
+      render: (p) => (
+        <input
+          type="number"
+          min={1}
+          max={22}
+          value={p.grid}
+          onChange={(e) => setGrid(p.driver, Number(e.target.value))}
+          className="w-14 rounded border border-line-ctl bg-surface-inset px-2 py-1 text-center text-ink outline-none focus:border-accent/60"
+        />
+      ),
+    },
+    {
+      key: "prob",
+      header: "Podium prob",
+      align: "right",
+      render: (p) => (
+        <span className="nums">
+          <span className="mr-2 inline-block h-1.5 rounded-full bg-accent align-middle"
+                style={{ width: `${Math.max(4, p.podium_prob * 60)}px` }} />
+          {pct(p.podium_prob)}
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <div className="mb-3 flex flex-wrap gap-2">
+        {podium.map((p, i) => (
+          <span key={p.driver} className="rounded-lg border border-line-card bg-surface-inset px-3 py-2">
+            <span className="mr-1 font-mono text-[11px] text-ink-faint">P{i + 1}</span>
+            <span className="font-700 text-ink">{p.driver}</span>{" "}
+            <span className="nums font-mono text-[12px] text-accent">{pct(p.podium_prob)}</span>
+          </span>
+        ))}
+      </div>
+      <div className="max-h-72 overflow-y-auto">
+        <DataTable columns={cols} rows={data.predictions} getKey={(p) => p.driver} highlightFirst />
+      </div>
     </>
   );
 }
@@ -96,7 +187,9 @@ function PodiumSection({ o }: { o: OutcomeResp }) {
 
   return (
     <Card className="p-4">
-      <SectionTitle>Podium predictor — forward-tested on {o.test_year}</SectionTitle>
+      <SectionTitle>
+        Track record — podium model on {o.test_year} races already run (forward test)
+      </SectionTitle>
       <div className="mb-3 max-w-md">
         <Field label={`Round · ${round.round} — ${round.event_name}`}>
           <Slider

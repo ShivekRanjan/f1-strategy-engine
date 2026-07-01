@@ -244,3 +244,18 @@ def outcome() -> dict:
     if payload is None:
         raise HTTPException(status_code=404, detail="results dataset not available")
     return payload
+
+
+class UpcomingRequest(BaseModel):
+    grid: dict[str, int] | None = Field(None, description="{driver: grid_pos} overrides")
+
+
+@app.post("/predict_upcoming")
+def predict_upcoming(req: UpcomingRequest) -> dict:
+    """Predict the next (not-yet-raced) round's podium from current form + grid."""
+    from f1se.standalone.outcome import predict_upcoming as _predict
+
+    payload = _predict(grid=req.grid)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="results dataset not available")
+    return payload

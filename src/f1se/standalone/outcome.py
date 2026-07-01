@@ -96,3 +96,70 @@ def compute_outcome(data_dir: str | Path | None = None, *, n_sims: int = 5000) -
 def cached_outcome() -> dict | None:
     """Process-wide cached outcome payload (heavy: trains a model + Monte Carlo)."""
     return compute_outcome()
+
+
+# --------------------------------------------------------------------------- #
+# Predicting the NEXT (not-yet-raced) round — a real forward prediction.       #
+# The podium model is grid + form only (no circuit feature), and an upcoming   #
+# race has no grid until qualifying, so the grid defaults to each driver's     #
+# current qualifying form and is overridable. Form is grid-independent, so it  #
+# is computed once (cached) and only the grid varies per call — fast enough    #
+# to re-predict live as the user edits the grid.                               #
+# --------------------------------------------------------------------------- #
+@lru_cache(maxsize=1)
+def _upcoming_context() -> dict | None:
+    fp = _resolve_results(None)
+    if fp is None:
+        return None
+    results = pd.read_parquet(fp)
+    season = int(results["year"].max())
+    done = results[results["year"] == season]
+    if done.empty:
+        return None
+    next_round = int(done["round"].max()) + 1
+
+    # Default grid = each driver's average grid so far (their qualifying form), ranked.
+    avg_grid = done.groupby("driver", observed=True)["grid"].mean().sort_values()
+    default_grid = {str(d): i + 1 for i, d in enumerate(avg_grid.index)}
+    team = (done.sort_values("round").groupby("driver", observed=True).tail(1)
+            .set_index("driver")["team"])
+
+    rows = [{
+        "year": season, "round": next_round, "event_name": "Next Race", "driver": d,
+        "team": str(team.get(d, "")), "grid": float(default_grid[d]),
+        "position": float("nan"), "points": float("nan"), "status": "Finished",
+    } for d in default_grid]
+    feats = build_features(pd.concat([results, pd.DataFrame(rows)], ignore_index=True),
+                           recency_halflife=4.0)
+    model = train_podium_model(feats, test_year=season)   # trains on < season only
+    nxt = feats[(feats["year"] == season) & (feats["round"] == next_round)]
+    return {
+        "season": season, "next_round": next_round, "default_grid": default_grid,
+        "clf": model.clf, "feature_cols": list(model.feature_cols),
+        "rows": nxt[["driver", "team", *model.feature_cols]].reset_index(drop=True),
+    }
+
+
+def predict_upcoming(grid: dict[str, int] | None = None) -> dict | None:
+    """Predict the next round's podium probabilities from current form.
+
+    ``grid`` optionally overrides start positions (``{driver: grid_pos}``); any
+    driver not listed keeps the form-based default. Returns drivers best-first.
+    """
+    ctx = _upcoming_context()
+    if ctx is None:
+        return None
+    used = {**ctx["default_grid"], **{str(k): int(v) for k, v in (grid or {}).items()}}
+    rows = ctx["rows"].copy()
+    rows["grid"] = rows["driver"].map(lambda d: float(used.get(str(d), 20)))
+    rows["podium_prob"] = ctx["clf"].predict_proba(rows[ctx["feature_cols"]])[:, 1]
+    rows = rows.sort_values("podium_prob", ascending=False)
+    return {
+        "season": ctx["season"], "next_round": ctx["next_round"],
+        "grid_source": "custom" if grid else "form",
+        "predictions": [
+            {"driver": str(r.driver), "team": str(r.team), "grid": int(r.grid),
+             "podium_prob": _f(r.podium_prob)}
+            for r in rows.itertuples(index=False)
+        ],
+    }

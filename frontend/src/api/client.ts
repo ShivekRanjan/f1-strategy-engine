@@ -9,6 +9,7 @@ import type {
   SimulateResp,
   TrackInfo,
   UndercutResp,
+  UpcomingResp,
 } from "./types";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
@@ -99,4 +100,6 @@ export const api = {
   }) => post<LiveResp>("/live", body),
 
   outcome: () => req<OutcomeResp>("/outcome"),
+  predictUpcoming: (grid?: Record<string, number>) =>
+    post<UpcomingResp>("/predict_upcoming", { grid: grid ?? null }),
 };
