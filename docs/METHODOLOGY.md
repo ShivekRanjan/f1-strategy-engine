@@ -224,6 +224,18 @@ surface for humans to weigh.
 
 *Reproduce: `analysis/backtest_austria_2026.py` (network — pulls the race from FastF1)*
 
+**Extended to the whole 2026 season (leave-one-race-out).** Across all 8 completed
+2026 rounds, each race is predicted by a model **refit without that race**, so every
+check is out-of-sample. Degradation is close (**0.07 s/lap MAE**), and the engine
+matched the field-dominant stop-count on **4/8** races. The misses are *systematic
+and explainable*, not random: at durable-tyre circuits where the field one-stops to
+hold track position (Japan: **21 of 22 drivers one-stopped**), the engine's free-air
+*time*-optimal plan recommends an extra stop — because it models pace and degradation
+but **not overtaking cost / track position**. It matches where the field genuinely
+two-stopped (Monaco, Austria). A clean, honest boundary of a free-air strategy model.
+
+*Reproduce: `analysis/backtest_2026_season.py`*
+
 ---
 
 ### The pattern
