@@ -24,6 +24,7 @@ from f1se.config import PROJECT_ROOT
 from f1se.eda import compound_stint_limits, estimate_pit_loss
 from f1se.models.cliff import CliffPrior
 from f1se.models.degradation import DegradationModel, fit_linear_baseline
+from f1se.models.overtaking import OvertakingPrior
 from f1se.sim.optimize import recommend_strategy
 from f1se.sim.safety_car import SafetyCarModel, calibrate_per_track
 from f1se.sim.simulate import Strategy, pace_fn_from_model, simulate_race
@@ -48,6 +49,8 @@ class StrategyEngine:
     # views and the LSTM nowcast (None for component-built engines in tests).
     laps: pd.DataFrame | None = None
     forecaster: object | None = None
+    # Track-position prior — the per-stop cost the free-air sim omits.
+    overtaking: OvertakingPrior = field(default_factory=OvertakingPrior)
 
     # ---- construction --------------------------------------------------------
     @staticmethod
@@ -122,6 +125,13 @@ class StrategyEngine:
             from f1se.models.lap_time import NumpyLapForecaster
             forecaster = NumpyLapForecaster.load(npz)
 
+        # Track-position prior: per-stop cost + data-informed per-track difficulty
+        # (from grid->finish retention in the results dataset, if present).
+        overtaking = OvertakingPrior()
+        results_fp = data_dir / "results.parquet"
+        if results_fp.exists():
+            overtaking = OvertakingPrior.from_results(pd.read_parquet(results_fp))
+
         return cls(
             deg_model=deg_model,
             deg_model_2026=deg_model_2026,
@@ -134,6 +144,7 @@ class StrategyEngine:
             well_sampled_tracks=well_sampled,
             laps=dry,
             forecaster=forecaster,
+            overtaking=overtaking,
         )
 
     # ---- per-track parameters ------------------------------------------------
@@ -198,11 +209,14 @@ class StrategyEngine:
         seed: int = 0,
         season: int | None = None,
         sc_scale: float = 1.0,
+        use_overtaking: bool = True,
     ) -> dict:
         """Recommend a strategy for ``track`` with a ranked, uncertainty-aware shortlist.
 
         ``sc_scale`` scales the calibrated safety-car hazard (0 = assume no SC,
         2 = double the risk) for sensitivity analysis of the recommendation.
+        ``use_overtaking`` charges each pit stop the track-position prior's cost so
+        the free-air optimiser doesn't over-stop (on by default).
         """
         total_laps = self._total_laps(track)
         pace_fn = self._pace_fn(track, total_laps, use_cliff, season)
@@ -213,6 +227,7 @@ class StrategyEngine:
             n_runs=n_runs, top_k=top_k, seed=seed,
             max_stops=max_stops, max_stint=self.stint_limits,
             pit_loss_s=pit_loss, pit_loss_sc_s=round(pit_loss * 0.5, 1),
+            stop_penalty_s=self.overtaking.penalty_per_stop(track) if use_overtaking else 0.0,
         )
         return {
             **self.race_info(track),

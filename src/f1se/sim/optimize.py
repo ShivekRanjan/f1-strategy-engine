@@ -113,11 +113,15 @@ def recommend_strategy(
     pit_loss_s: float = 21.0,
     pit_loss_sc_s: float = 11.0,
     sc_lap_factor: float = 1.4,
+    stop_penalty_s: float = 0.0,
     **enum_kwargs,
 ) -> OptimizationResult:
     """Search the strategy space and return the best plan with uncertainty.
 
     ``objective`` is one of :data:`OBJECTIVES` ("mean", "median", "p85").
+    ``stop_penalty_s`` charges each pit stop an extra cost *for ranking only* (the
+    track-position / execution cost the free-air sim omits — see
+    :class:`f1se.models.overtaking.OvertakingPrior`); reported race times are raw.
     """
     if objective not in OBJECTIVES:
         raise ValueError(f"objective must be one of {list(OBJECTIVES)}")
@@ -139,7 +143,10 @@ def recommend_strategy(
                                 pit_loss_sc_s=pit_loss_sc_s, sc_lap_factor=sc_lap_factor)
 
     scores = np.array([score_fn(totals[i]) for i in range(len(candidates))])
-    order = np.argsort(scores)
+    # Rank on the penalised score (extra stops cost track position / risk), but
+    # keep the raw samples for the reported times and paired probabilities.
+    rank_scores = scores + np.array([c.n_stops * stop_penalty_s for c in candidates])
+    order = np.argsort(rank_scores)
     best_idx = int(order[0])
     best_samples = totals[best_idx]
 

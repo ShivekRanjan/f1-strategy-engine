@@ -234,6 +234,21 @@ hold track position (Japan: **21 of 22 drivers one-stopped**), the engine's free
 but **not overtaking cost / track position**. It matches where the field genuinely
 two-stopped (Monaco, Austria). A clean, honest boundary of a free-air strategy model.
 
+That boundary prompted a fix — and the fix is itself a lesson in validating a
+hypothesis. The intuition was "add a track-position penalty so the optimiser
+stops over-stopping at processional circuits." But the **data refused the
+hypothesis**: the over-stopping is mostly at *easy*-to-overtake circuits
+(Australia/China/Canada shuffle their grid the most), while the engine already
+agrees where overtaking is genuinely hard. So a difficulty-scaled penalty targets
+the wrong tracks. What shipped is an [`OvertakingPrior`](../src/f1se/models/overtaking.py)
+— a labelled, tunable per-stop cost (mostly uniform: the out-lap, traffic, and
+execution cost the free-air sim omits; plus a *small* term that grows with
+data-derived overtaking difficulty). It cleanly fixes the one textbook case
+(Suzuka), but honestly it's a **nudge, not a cure**: the bulk of the over-stopping
+is a pace/degradation-calibration matter, not track position, and pushing the
+prior harder just under-stops genuine high-degradation two-stop tracks. Kept on by
+default, documented for exactly what it does and doesn't do.
+
 *Reproduce: `analysis/backtest_2026_season.py`*
 
 ---

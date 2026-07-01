@@ -101,10 +101,12 @@ def main() -> None:
     print(f"  stop-count vs field-dominant : {field_hit}/{n} ({100*field_hit/n:.0f}%)")
     print(f"  exact tyre set vs winner     : {tyre_hit}/{n} ({100*tyre_hit/n:.0f}%)")
     print(f"  degradation MAE (leave-one-out): {deg_maes/n:.4f} s/lap")
-    print("\nRead honestly: the engine computes the free-air TIME-optimal plan; it doesn't model\n"
-          "track position / overtaking cost, so at durable-tyre circuits where the field 1-stops to\n"
-          "hold position, it tends to recommend an extra stop. It matches best where the field truly\n"
-          "2-stopped. Degradation itself is close (leave-one-out).")
+    print("\nRead honestly: a per-stop track-position prior (OvertakingPrior) now charges each stop the\n"
+          "cost the free-air sim omits. It cleanly fixes the textbook case (Suzuka: hard to overtake,\n"
+          "field one-stops) but is NOT the main story — the bulk of over-stopping is at EASY-to-\n"
+          "overtake circuits (Australia/China/Canada), so it's a pace/degradation-calibration matter,\n"
+          "not track position. Pushing the prior harder just under-stops genuine high-deg 2-stop\n"
+          "tracks (Barcelona). Kept as a principled nudge, honest about its limits.")
 
 
 if __name__ == "__main__":
