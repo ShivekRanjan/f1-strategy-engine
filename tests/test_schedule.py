@@ -48,6 +48,30 @@ def test_calendar_none_when_schedule_unavailable(monkeypatch):
     assert S.calendar_payload(2026) is None
 
 
+def test_cached_calendar_expires_so_next_race_flags_stay_fresh(monkeypatch):
+    """The done/next flags are time-dependent — the cache must expire, not pin them."""
+    calls = {"n": 0}
+
+    def fake_payload(year):
+        calls["n"] += 1
+        return {"season": year, "rounds": [], "next_round": calls["n"], "next_session": None}
+
+    monkeypatch.setattr(S, "calendar_payload", fake_payload)
+    S._CACHE.clear()
+    try:
+        assert S.cached_calendar(2026)["next_round"] == 1
+        assert S.cached_calendar(2026)["next_round"] == 1      # within TTL: cached
+        S._CACHE[2026] = (S._CACHE[2026][0] - S._TTL_S - 1, S._CACHE[2026][1])
+        assert S.cached_calendar(2026)["next_round"] == 2      # expired: recomputed
+        # an offline miss is not cached — the next request retries
+        monkeypatch.setattr(S, "calendar_payload", lambda year: None)
+        S._CACHE.clear()
+        assert S.cached_calendar(2026) is None
+        assert 2026 not in S._CACHE
+    finally:
+        S._CACHE.clear()
+
+
 @pytest.mark.network
 def test_season_schedule_live_2026():
     rounds = S.season_schedule(2026)

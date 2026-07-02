@@ -8,7 +8,7 @@ the results parquet); it's cached per process and degrades to ``None`` offline.
 
 from __future__ import annotations
 
-from functools import lru_cache
+import time
 
 import pandas as pd
 
@@ -84,6 +84,20 @@ def calendar_payload(year: int) -> dict | None:
             "next_session": next_session}
 
 
-@lru_cache(maxsize=8)
+# TTL cache, not lru_cache: the payload's done/next_round/next_session flags are
+# computed against *now*, so caching forever would keep pointing at a race that
+# has already run. One hour keeps the countdown honest on a long-lived server
+# while still avoiding a FastF1 hit per request.
+_TTL_S = 3600
+_CACHE: dict[int, tuple[float, dict | None]] = {}
+
+
 def cached_calendar(year: int) -> dict | None:
-    return calendar_payload(year)
+    now = time.time()
+    hit = _CACHE.get(year)
+    if hit is not None and now - hit[0] < _TTL_S:
+        return hit[1]
+    payload = calendar_payload(year)
+    if payload is not None:  # don't cache an offline miss; retry next request
+        _CACHE[year] = (now, payload)
+    return payload
