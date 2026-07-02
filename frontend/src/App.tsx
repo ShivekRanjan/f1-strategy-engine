@@ -3,6 +3,7 @@ import { Spinner } from "./components/ui";
 
 // Views are lazy-loaded: each section (and the chart library the heavy ones
 // pull in) ships as its own chunk instead of one entry bundle.
+const HomeView = lazy(() => import("./views/HomeView"));
 const StrategyView = lazy(() => import("./views/StrategyView"));
 const RaceHubView = lazy(() => import("./views/RaceHubView"));
 const UndercutView = lazy(() => import("./views/UndercutView"));
@@ -16,6 +17,7 @@ const LiveView = lazy(() => import("./views/LiveView"));
 const REPO = "https://github.com/ShivekRanjan/f1-strategy-engine";
 
 const TABS = [
+  { id: "home", label: "Home", group: "Overview", el: <HomeView /> },
   { id: "strategy", label: "Strategy", group: "Strategy", el: <StrategyView /> },
   { id: "undercut", label: "Undercut", group: "Strategy", el: <UndercutView /> },
   { id: "calendar", label: "Calendar", group: "Race weekend", el: <CalendarView /> },
@@ -28,13 +30,13 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
-const GROUP_ORDER = ["Strategy", "Race weekend", "Championship", "Paddock"] as const;
+const GROUP_ORDER = ["Overview", "Strategy", "Race weekend", "Championship", "Paddock"] as const;
 
 // --- tiny hash router: the tab lives in the URL (#/standings), so refresh
 // keeps your place, back/forward work, and sections are deep-linkable.
 function tabFromHash(): TabId {
   const h = window.location.hash.replace(/^#\/?/, "");
-  return (TABS.some((t) => t.id === h) ? h : "strategy") as TabId;
+  return (TABS.some((t) => t.id === h) ? h : "home") as TabId;
 }
 
 function useHashTab(): [TabId, (id: TabId) => void] {
@@ -62,7 +64,7 @@ export default function App() {
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           {GROUP_ORDER.map((g) => (
             <div key={g} className="mb-5">
-              <div className="mb-1.5 px-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
+              <div className="mb-1.5 px-2 font-mono text-[11px] uppercase tracking-[0.16em] text-ink-faint">
                 {g}
               </div>
               {TABS.filter((t) => t.group === g).map((t) => (
@@ -82,17 +84,22 @@ export default function App() {
             repo ↗
           </a>
         </div>
-        <div className="flex gap-1 overflow-x-auto border-t border-line px-3 pb-2 pt-1">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`whitespace-nowrap rounded-md px-3 py-1.5 font-mono text-[12px] transition ${
-                tab === t.id ? "bg-accent/10 text-accent" : "text-ink-dim hover:text-ink-muted"
-              }`}
-            >
-              {t.label}
-            </button>
+        <div className="flex items-center gap-1 overflow-x-auto border-t border-line px-3 pb-2 pt-1">
+          {GROUP_ORDER.map((g, gi) => (
+            <span key={g} className="flex items-center gap-1">
+              {gi > 0 && <span className="mx-1 h-4 w-px shrink-0 bg-line-hover/60" />}
+              {TABS.filter((t) => t.group === g).map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`whitespace-nowrap rounded-md px-3 py-1.5 font-mono text-[12px] transition ${
+                    tab === t.id ? "bg-accent/10 text-accent" : "text-ink-dim hover:text-ink-muted"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </span>
           ))}
         </div>
       </header>
@@ -131,7 +138,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
           <span className="px-1 font-500 text-ink-faint">/</span>
           <span className="text-ink-soft">F1 OS</span>
         </div>
-        <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-ink-faint">
+        <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-faint">
           Strategy · standings · live
         </div>
       </div>

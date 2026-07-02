@@ -11,7 +11,7 @@ import {
 import { api } from "../api/client";
 import { Column, DataTable } from "../components/DataTable";
 import { Field, Slider } from "../components/controls";
-import { Badge, Callout, Card, ErrorNote, Metric, SectionTitle, Spinner } from "../components/ui";
+import { Badge, Callout, Card, CardSkeleton, ErrorNote, Metric, SectionTitle, Skeleton, Spinner } from "../components/ui";
 import { pct } from "../lib/format";
 import { useAsync, useDebounced } from "../lib/useAsync";
 import type { OutcomeResp, PodiumPred, UpcomingPred, UpcomingResp } from "../api/types";
@@ -27,7 +27,9 @@ export default function OutcomeView() {
         <em>bootstraps driver strength</em>, so a few-race leader doesn’t show a dishonest 100%.
       </ViewIntro>
       {o.error && <ErrorNote error={o.error} />}
-      {!o.data && !o.error && <Spinner label="Training the podium model & simulating the title…" />}
+      {!o.data && !o.error && (
+        <CardSkeleton label="Training the podium model & simulating the title…" height={360} />
+      )}
       {o.data && <Body o={o.data} />}
     </div>
   );
@@ -96,7 +98,13 @@ function UpcomingRace() {
         {up.data && <Badge tone="red">round {up.data.next_round} · not yet raced</Badge>}
       </SectionTitle>
       {up.error && <ErrorNote error={up.error} />}
-      {!up.data && !up.error && <Spinner label="Predicting the next race…" />}
+      {!up.data && !up.error && (
+        <div className="space-y-2.5">
+          <Spinner label="Predicting the next race…" />
+          <Skeleton className="h-10 w-2/3" />
+          <Skeleton className="h-56 w-full" />
+        </div>
+      )}
       {up.data && <UpcomingBody data={up.data} override={override} setOverride={setOverride} />}
       <Callout>
         The model uses <em>starting grid + current form</em> (no circuit-specific input). The grid

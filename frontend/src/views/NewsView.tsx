@@ -72,7 +72,7 @@ function NewsRow({ it }: { it: NewsItem }) {
       rel="noreferrer noopener"
       className="group block px-4 py-3 transition hover:bg-surface-inset/60"
     >
-      <div className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em]">
+      <div className="mb-1 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em]">
         <span className="rounded-full bg-accent/12 px-2 py-0.5 text-accent">{it.source}</span>
         <span className="text-ink-faint">{timeAgo(it.ts)}</span>
         <span className="ml-auto text-ink-faint opacity-0 transition group-hover:opacity-100">

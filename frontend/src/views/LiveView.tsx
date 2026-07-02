@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import { api } from "../api/client";
 import { Column, DataTable } from "../components/DataTable";
-import { Field, Select, Slider } from "../components/controls";
+import { Combobox, Field, Select, Slider } from "../components/controls";
 import { Badge, Callout, Card, ErrorNote, Metric, SectionTitle, Spinner } from "../components/ui";
 import { beatsPick, clock, secs } from "../lib/format";
 import { useAsync, useDebounced } from "../lib/useAsync";
@@ -73,17 +73,19 @@ function Inner({ tracks: _tracks }: { tracks: string[] }) {
             />
           </Field>
           <Field label="Circuit">
-            <Select
+            <Combobox
               value={track ?? ""}
               options={circuits.data?.circuits ?? []}
-              onChange={(v) => setTrack(String(v))}
+              onChange={(v) => setTrack(v)}
+              placeholder="Search circuits…"
             />
           </Field>
           <Field label="Driver">
-            <Select
+            <Combobox
               value={driver ?? ""}
               options={drivers.data?.drivers ?? []}
-              onChange={(v) => setDriver(String(v))}
+              onChange={(v) => setDriver(v)}
+              placeholder="Search drivers…"
             />
           </Field>
         </div>

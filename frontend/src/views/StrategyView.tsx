@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { api } from "../api/client";
 import { Field, Segmented, Select, Slider } from "../components/controls";
-import { Callout, Card, ErrorNote, SectionTitle, Spinner } from "../components/ui";
+import { Callout, Card, CardSkeleton, ErrorNote, SectionTitle, Spinner } from "../components/ui";
 import { beatsPick, clock, compoundColor } from "../lib/format";
 import { useAsync, useDebounced } from "../lib/useAsync";
 import type {
@@ -98,7 +98,7 @@ function Dashboard({ tracks }: { tracks: TrackInfo[] }) {
       />
       <div className="space-y-5">
         {rec.error && <ErrorNote error={rec.error} />}
-        {!rec.data && !rec.error && <Spinner label="Searching strategies…" />}
+        {!rec.data && !rec.error && <CardSkeleton label="Searching strategies…" height={380} />}
         {rec.data && best && (
           <>
             <RecommendationBanner rec={rec.data} best={best} />
@@ -152,7 +152,7 @@ function Rail(props: {
                 }`}
               >
                 <div className="text-[13px] font-600">{shortName(t.track)}</div>
-                <div className="font-mono text-[10px] text-ink-dim">
+                <div className="font-mono text-[11px] text-ink-dim">
                   {t.total_laps} laps{!t.well_sampled && " · limited data"}
                 </div>
               </button>
@@ -195,9 +195,9 @@ function Rail(props: {
       >
         <span>
           <span className="block text-[12.5px] font-600 text-ink-soft">Cliff prior</span>
-          <span className="font-mono text-[10px] text-ink-dim">domain assumption</span>
+          <span className="font-mono text-[11px] text-ink-dim">domain assumption</span>
         </span>
-        <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-600 ${
+        <span className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-600 ${
           p.cliff ? "bg-accent/20 text-accent" : "bg-surface-inset2 text-ink-dim"
         }`}>
           {p.cliff ? "ON" : "OFF"}
@@ -205,7 +205,7 @@ function Rail(props: {
       </button>
 
       {p.info && (
-        <div className="space-y-1 border-t border-line pt-3 font-mono text-[10.5px] text-ink-faint">
+        <div className="space-y-1 border-t border-line pt-3 font-mono text-[11px] text-ink-faint">
           <div>pit loss · {p.info.pit_loss_s.toFixed(1)}s (measured)</div>
           <div>P(safety car) · {pSC != null ? Math.round(pSC * 100) : "–"}%</div>
           <div>searched {p.info.n_evaluated} strategies</div>
@@ -224,7 +224,7 @@ function RecommendationBanner({ rec, best }: { rec: RecommendResp; best: Strateg
     <Card className="overflow-hidden border-line-card">
       <div className="flex flex-wrap">
         <div className="min-w-[280px] flex-1 border-line p-5 sm:border-r">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+          <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
             ◆ Recommended plan <span className="text-ink-dim">· {rec.track}</span>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -255,7 +255,7 @@ function RecommendationBanner({ rec, best }: { rec: RecommendResp; best: Strateg
 function KpiCell({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="border-b border-l border-line p-4">
-      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">{label}</div>
+      <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">{label}</div>
       <div className={`nums mt-1 font-mono text-[22px] ${accent ? "text-accent" : "text-ink"}`}>{value}</div>
     </div>
   );
@@ -265,7 +265,7 @@ function StintTimeline({ best, total }: { best: StrategySummary; total: number }
   const stints = stintLaps(best, total);
   return (
     <div className="border-t border-line bg-surface-strip p-5">
-      <div className="mb-2 flex justify-between font-mono text-[10px] uppercase tracking-wide text-ink-faint">
+      <div className="mb-2 flex justify-between font-mono text-[11px] uppercase tracking-wide text-ink-faint">
         <span>Stint plan</span>
         <span>lap 1 → {total}</span>
       </div>
@@ -292,7 +292,7 @@ function StintTimeline({ best, total }: { best: StrategySummary; total: number }
         {best.pit_laps.map((lap, i) => (
           <span
             key={i}
-            className="absolute font-mono text-[10px] text-accent"
+            className="absolute font-mono text-[11px] text-accent"
             style={{ left: `${(lap / total) * 100}%`, transform: "translateX(-50%)" }}
           >
             ▲ L{lap}
@@ -323,11 +323,11 @@ function DegradationCard({ deg, loading, cliff }: { deg: DegradationResp | null 
       <div className="flex items-start justify-between">
         <div>
           <SectionTitle>Tyre degradation model</SectionTitle>
-          <div className="-mt-2 mb-3 font-mono text-[10.5px] text-ink-faint">
+          <div className="-mt-2 mb-3 font-mono text-[11px] text-ink-faint">
             pace loss vs fresh · dashed = linear · solid = +cliff
           </div>
         </div>
-        <div className="flex gap-3 font-mono text-[10px]">
+        <div className="flex gap-3 font-mono text-[11px]">
           {COMPS.map((c) => (
             <span key={c} className="flex items-center gap-1 text-ink-muted">
               <span className="inline-block h-[3px] w-3.5 rounded" style={{ background: compoundColor(c) }} />
@@ -362,8 +362,8 @@ function DegradationChart({ deg, cliff }: { deg: DegradationResp; cliff: boolean
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={data} margin={{ top: 6, right: 10, bottom: 2, left: -20 }}>
         <CartesianGrid stroke="#1a212b" vertical={false} />
-        <XAxis dataKey="age" stroke="#5c6675" fontSize={10} tickCount={8} />
-        <YAxis stroke="#5c6675" fontSize={10} tickFormatter={(v) => `+${v.toFixed(0)}`} />
+        <XAxis dataKey="age" stroke="#9a9aa6" fontSize={11} tickCount={8} />
+        <YAxis stroke="#9a9aa6" fontSize={11} tickFormatter={(v) => `+${v.toFixed(0)}`} />
         <Tooltip
           labelFormatter={(v) => `tyre age ${v}`}
           formatter={(val: number, name: string) => [`+${val.toFixed(2)}s`, name.replace("_cliff", "").replace("_lin", "")]}
@@ -387,7 +387,7 @@ function OutcomeCard({ sim }: { sim: SimulateResp | null | undefined }) {
   return (
     <Card className="p-4">
       <SectionTitle>Monte-Carlo outcome</SectionTitle>
-      <div className="-mt-2 mb-3 font-mono text-[10.5px] text-ink-faint">
+      <div className="-mt-2 mb-3 font-mono text-[11px] text-ink-faint">
         race-time distribution · stochastic safety car
       </div>
       {!sim ? <div className="h-[260px]"><Spinner label="Simulating…" /></div> : <OutcomeChart sim={sim} />}
@@ -403,8 +403,8 @@ function OutcomeChart({ sim }: { sim: SimulateResp }) {
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={data} margin={{ top: 6, right: 10, bottom: 2, left: -22 }}>
           <CartesianGrid stroke="#1a212b" vertical={false} />
-          <XAxis dataKey="x" tickFormatter={(v) => v.toFixed(0)} stroke="#5c6675" fontSize={10} />
-          <YAxis stroke="#5c6675" fontSize={10} />
+          <XAxis dataKey="x" tickFormatter={(v) => v.toFixed(0)} stroke="#9a9aa6" fontSize={11} />
+          <YAxis stroke="#9a9aa6" fontSize={11} />
           <Tooltip labelFormatter={(v) => `${Number(v).toFixed(1)} min`} formatter={(v) => [v, "races"]} />
           <ReferenceLine x={sim.p50_s / 60} stroke="#e2231a" strokeWidth={1.6} />
           <Bar dataKey="c" radius={[1, 1, 0, 0]}>
@@ -412,7 +412,7 @@ function OutcomeChart({ sim }: { sim: SimulateResp }) {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      <div className="nums mt-1 font-mono text-[10px] text-ink-faint">
+      <div className="nums mt-1 font-mono text-[11px] text-ink-faint">
         P(safety car) {Math.round(sim.p_safety_car * 100)}% · spread (p90−p10) {(sim.p90_s - sim.p10_s).toFixed(0)}s · red line = median
       </div>
     </>
@@ -427,7 +427,7 @@ function ShortlistCard({ rec }: { rec: RecommendResp }) {
       <div className="overflow-x-auto">
         <table className="w-full border-collapse font-mono text-[12.5px]">
           <thead>
-            <tr className="border-b border-line text-[10px] uppercase tracking-[0.1em] text-ink-faint">
+            <tr className="border-b border-line text-[11px] uppercase tracking-[0.1em] text-ink-faint">
               <th className="px-3 py-2 text-left">#</th>
               <th className="px-3 py-2 text-left">Strategy</th>
               <th className="px-3 py-2 text-center">Stops</th>

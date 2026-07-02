@@ -1,43 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { Badge, Card, ErrorNote, SectionTitle, Spinner } from "../components/ui";
+import { Badge, Card, CardSkeleton, ErrorNote, SectionTitle } from "../components/ui";
 import { pct } from "../lib/format";
+import { countdown, fmtSession, useNow } from "../lib/time";
 import { useAsync } from "../lib/useAsync";
 import type { CalendarRound, CalendarResp } from "../api/types";
 import { ViewIntro } from "./common";
 
-/** Ticking clock (1 Hz) for the live countdown. */
-function useNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [active]);
-  return now;
-}
-
-function countdown(target: string, now: number): string {
-  const ms = new Date(target).getTime() - now;
-  if (ms <= 0) return "under way";
-  const s = Math.floor(ms / 1000);
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  if (h > 0) return `${h}h ${m}m ${sec}s`;
-  return `${m}m ${sec}s`;
-}
-
 const fmtDay = (iso: string | null) =>
   iso ? new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
-const fmtSession = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, {
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
 export default function CalendarView() {
   const seasons = useAsync(() => api.allSeasons(), []);
@@ -79,7 +50,7 @@ export default function CalendarView() {
       )}
 
       {cal.error && <ErrorNote error={cal.error} />}
-      {season != null && !cal.data && !cal.error && <Spinner label="Loading the calendar…" />}
+      {season != null && !cal.data && !cal.error && <CardSkeleton label="Loading the calendar…" height={320} />}
       {cal.data && <Body cal={cal.data} />}
     </div>
   );
@@ -119,7 +90,7 @@ function NextRaceCard({
     <Card className="border-l-2 border-l-accent p-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+          <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">
             Next up · Round {round.round}
           </div>
           <div className="mt-1 flex items-center gap-2">
@@ -131,7 +102,7 @@ function NextRaceCard({
           </div>
         </div>
         <div className="text-right">
-          <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+          <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">
             {nextSessionName} in
           </div>
           <div className="nums font-mono text-3xl text-accent">{countdown(nextSessionIso, now)}</div>
@@ -149,7 +120,7 @@ function NextRaceCard({
                 upcoming ? "border-line-card bg-surface-inset" : "border-line bg-transparent opacity-60"
               }`}
             >
-              <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-faint">{s.name}</div>
+              <div className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-faint">{s.name}</div>
               <div className="text-sm text-ink">{fmtSession(s.date)}</div>
               {upcoming && <div className="font-mono text-[11px] text-accent">in {countdown(s.date, now)}</div>}
             </div>
@@ -173,7 +144,7 @@ function PredictedPodium({ round }: { round: number }) {
   return (
     <div className="mt-4 border-t border-line pt-3">
       <div className="mb-2 flex items-baseline justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+        <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">
           🔮 Model's predicted podium
         </span>
         <a href="#/outcome" className="font-mono text-[11px] text-accent transition hover:opacity-80">

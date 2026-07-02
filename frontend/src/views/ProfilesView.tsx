@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { api } from "../api/client";
 import { Column, DataTable } from "../components/DataTable";
-import { Field, Select } from "../components/controls";
+import { Combobox, Field } from "../components/controls";
 import { Callout, Card, ErrorNote, Metric, SectionTitle, Spinner } from "../components/ui";
 import { teamColor } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
@@ -69,14 +69,15 @@ function Drivers() {
     <>
       <Card className="p-4">
         <Field label="Driver">
-          <Select
+          <Combobox
             value={code ?? ""}
             options={idx.data.drivers.map((d) => d.driver)}
-            onChange={(v) => setCode(String(v))}
+            onChange={(v) => setCode(v)}
             getLabel={(v) => {
               const d = idx.data!.drivers.find((x) => x.driver === v);
               return d ? `${d.driver} — ${d.team}` : String(v);
             }}
+            placeholder="Search drivers…"
           />
         </Field>
       </Card>
@@ -114,7 +115,7 @@ function DriverBody({ p }: { p: DriverProfile }) {
           <SectionTitle>
             {p.seasons[0]}–{String(p.seasons.at(-1)).slice(2)} totals
           </SectionTitle>
-          <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-faint">
+          <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-faint">
             within dataset · not all-time career
           </span>
         </div>
@@ -184,7 +185,7 @@ function ScoreBar({ label, self, total }: { label: string; self: number; total: 
   const pct = total ? (self / total) * 100 : 50;
   return (
     <div className="mb-1.5">
-      <div className="mb-0.5 flex justify-between font-mono text-[10px] uppercase tracking-[0.1em] text-ink-faint">
+      <div className="mb-0.5 flex justify-between font-mono text-[11px] uppercase tracking-[0.1em] text-ink-faint">
         <span>
           {label} {self}–{total - self}
         </span>
@@ -261,10 +262,11 @@ function Constructors() {
     <>
       <Card className="p-4">
         <Field label="Constructor">
-          <Select
+          <Combobox
             value={team ?? ""}
             options={idx.data.constructors.map((c) => c.team)}
-            onChange={(v) => setTeam(String(v))}
+            onChange={(v) => setTeam(v)}
+            placeholder="Search teams…"
           />
         </Field>
       </Card>
@@ -311,7 +313,7 @@ function ConstructorBody({ p }: { p: ConstructorProfile }) {
           <SectionTitle>
             {p.seasons[0]}–{String(p.seasons.at(-1)).slice(2)} totals
           </SectionTitle>
-          <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-faint">
+          <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-faint">
             within dataset · not all-time
           </span>
         </div>

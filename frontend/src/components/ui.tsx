@@ -42,7 +42,7 @@ export function Metric({
 }) {
   return (
     <Card className={`p-4 ${accent ? "border-l-2 border-l-accent" : ""}`}>
-      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint" title={title}>
+      <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint" title={title}>
         {label}
       </div>
       <div className={`nums mt-1 font-mono text-2xl ${accent ? "text-accent" : "text-ink"}`}>{value}</div>
@@ -110,6 +110,28 @@ export function Spinner({ label }: { label?: string }) {
       <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line border-t-f1" />
       {label}
     </div>
+  );
+}
+
+// --- Skeletons ----------------------------------------------------------------
+// For the heavy cards (Monte-Carlo, model training): reserve the final height so
+// the layout doesn't shift when results land. Spinner stays for quick loads.
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-md bg-surface-inset ${className}`} />;
+}
+
+export function CardSkeleton({ label, height = 240 }: { label?: string; height?: number }) {
+  return (
+    <Card className="p-4">
+      {label && <Spinner label={label} />}
+      <div className="mt-3 space-y-2.5">
+        <Skeleton className="h-4 w-1/3" />
+        <Skeleton className="h-4 w-2/3" />
+        <div style={{ height: Math.max(0, height - 60) }}>
+          <Skeleton className="h-full w-full" />
+        </div>
+      </div>
+    </Card>
   );
 }
 

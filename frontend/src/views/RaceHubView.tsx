@@ -11,8 +11,8 @@ import {
 } from "recharts";
 import { api } from "../api/client";
 import { Column, DataTable } from "../components/DataTable";
-import { Field, Select } from "../components/controls";
-import { Badge, Callout, Card, ErrorNote, SectionTitle, Spinner } from "../components/ui";
+import { Combobox, Field, Select } from "../components/controls";
+import { Badge, Callout, Card, CardSkeleton, ErrorNote, SectionTitle, Skeleton, Spinner } from "../components/ui";
 import { beatsPick, clock, compoundColor, fmtPlan, pct, teamColor } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
 import type {
@@ -68,10 +68,11 @@ function Inner() {
             />
           </Field>
           <Field label="Circuit">
-            <Select
+            <Combobox
               value={track ?? ""}
               options={circuits.data?.circuits ?? []}
-              onChange={(v) => setTrack(String(v))}
+              onChange={(v) => setTrack(v)}
+              placeholder="Search circuits…"
             />
           </Field>
         </div>
@@ -91,7 +92,7 @@ function RaceHub({ track, season }: { track: string; season: number }) {
       {/* Race header strip */}
       <Card className="flex flex-wrap items-center gap-x-8 gap-y-3 p-4">
         <div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+          <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">
             {season}
             {card.data ? ` · Round ${card.data.round}` : ""}
           </div>
@@ -107,14 +108,53 @@ function RaceHub({ track, season }: { track: string; season: number }) {
         )}
       </Card>
 
-      {card.error && <ErrorNote error={card.error} />}
-      {!card.data && !card.error && <Spinner label="Loading the race card…" />}
-      {card.data && <PodiumCompare card={card.data} />}
-      {card.data && <ResultTable card={card.data} />}
+      <SectionNav />
 
-      <StrategyCall track={track} season={season} />
-      <Degradation track={track} season={season} />
-      <PaceReplay track={track} season={season} />
+      {card.error && <ErrorNote error={card.error} />}
+      {!card.data && !card.error && (
+        <CardSkeleton label="Loading the race card…" height={300} />
+      )}
+      <div id="hub-podium" className="scroll-mt-24">
+        {card.data && <PodiumCompare card={card.data} />}
+      </div>
+      <div id="hub-result" className="scroll-mt-24">
+        {card.data && <ResultTable card={card.data} />}
+      </div>
+
+      <div id="hub-strategy" className="scroll-mt-24">
+        <StrategyCall track={track} season={season} />
+      </div>
+      <div id="hub-tyres" className="scroll-mt-24">
+        <Degradation track={track} season={season} />
+      </div>
+      <div id="hub-pace" className="scroll-mt-24">
+        <PaceReplay track={track} season={season} />
+      </div>
+    </div>
+  );
+}
+
+/** Sticky in-page nav — the hub is ~5 screens long; jump to any section. */
+const HUB_SECTIONS = [
+  ["hub-podium", "Podium"],
+  ["hub-result", "Result"],
+  ["hub-strategy", "Strategy"],
+  ["hub-tyres", "Tyres"],
+  ["hub-pace", "Pace"],
+] as const;
+
+function SectionNav() {
+  return (
+    <div className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface-rail/95 px-2 py-1.5 backdrop-blur lg:top-0">
+      {HUB_SECTIONS.map(([id, label]) => (
+        <button
+          key={id}
+          onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          className="whitespace-nowrap rounded-md px-3 py-1 font-mono text-[12px] text-ink-dim transition hover:bg-surface-inset/70 hover:text-ink-soft"
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -122,7 +162,7 @@ function RaceHub({ track, season }: { track: string; season: number }) {
 function HeadStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">{label}</div>
+      <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">{label}</div>
       <div className="nums mt-0.5 font-mono text-lg text-ink">{value}</div>
     </div>
   );
@@ -277,7 +317,13 @@ function StrategyCall({ track, season }: { track: string; season: number }) {
     <Card className="p-4">
       <SectionTitle>Optimal strategy — what the engine would call</SectionTitle>
       {rec.error && <ErrorNote error={rec.error} />}
-      {!rec.data && !rec.error && <Spinner label="Optimising strategy (Monte-Carlo)…" />}
+      {!rec.data && !rec.error && (
+        <div className="space-y-2.5">
+          <Spinner label="Optimising strategy (Monte-Carlo)…" />
+          <Skeleton className="h-7 w-1/2" />
+          <Skeleton className="h-44 w-full" />
+        </div>
+      )}
       {rec.data && <StrategyBody rec={rec.data} />}
     </Card>
   );

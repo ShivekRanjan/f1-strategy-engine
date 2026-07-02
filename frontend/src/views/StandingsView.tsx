@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import { Column, DataTable } from "../components/DataTable";
-import { Badge, Callout, Card, ErrorNote, SectionTitle, Spinner } from "../components/ui";
+import { Badge, Callout, Card, CardSkeleton, ErrorNote, SectionTitle } from "../components/ui";
 import { pct } from "../lib/format";
 import { teamColor } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
@@ -21,7 +21,9 @@ export default function StandingsView() {
         extrapolation.
       </ViewIntro>
       {s.error && <ErrorNote error={s.error} />}
-      {!s.data && !s.error && <Spinner label="Tallying the championship…" />}
+      {!s.data && !s.error && (
+        <CardSkeleton label="Tallying the championship…" height={420} />
+      )}
       {s.data && <Body data={s.data} season={season} setSeason={setSeason} />}
     </div>
   );
@@ -85,7 +87,7 @@ function LeaderStrip({ data }: { data: StandingsResp }) {
   return (
     <Card className="flex flex-wrap items-center gap-x-8 gap-y-3 border-l-2 border-l-accent p-4">
       <div>
-        <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+        <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">
           Championship leader
         </div>
         <div className="mt-1 flex items-baseline gap-2">
@@ -120,7 +122,7 @@ function Stat({
 }) {
   return (
     <div>
-      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">{label}</div>
+      <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">{label}</div>
       <div className={`nums mt-1 font-mono text-2xl ${accent ? "text-accent" : "text-ink"}`}>
         {value}
       </div>
