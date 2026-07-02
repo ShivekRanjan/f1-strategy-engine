@@ -266,6 +266,33 @@ tyre-punishing) is the one honest miss that remains.
 
 *Reproduce: `analysis/backtest_2026_season.py` (uses each race's FastF1 track temp)*
 
+## 10. From engine to F1 OS — the same validated pieces, resurfaced
+
+The app later grew from four strategy views into a nine-section **F1 OS**
+(standings, race hub, driver/team profiles, calendar, news). Methodologically,
+almost nothing new was modelled — the point was to *reuse* the validated pieces
+where people actually look:
+
+- **Standings** attach a title-win probability per driver from the same
+  bootstrap championship simulator (§7's honesty device: a few-race leader
+  shows ~90%, not a dishonest 100%).
+- **The Race Hub** turns §9's discipline into a product feature: for any race,
+  the podium model's **pre-race** prediction (trained only on earlier seasons)
+  is shown next to the actual result and scored **hit@3** — every race card is
+  a small forward test on display, misses included.
+- **The Calendar** surfaces the next-race podium prediction where people check
+  the schedule, and says plainly that the grid defaults to qualifying form
+  until the real grid exists.
+- **News** is headlines + link-out only (RSS); **live timing** was deliberately
+  *not* faked: real-time data only streams during a session, so between
+  sessions the calendar counts down and the Live Race view replays — the UI
+  says so instead of pretending.
+
+Two data-honesty items surfaced during the build and were fixed rather than
+papered over: an all-NaN 2021 results ingest (dropped — the window is
+2023–2026 and now says so), and profile "career" totals that were really
+window totals (relabelled **"2023–26 totals · not all-time career"**).
+
 ---
 
 ### The pattern
