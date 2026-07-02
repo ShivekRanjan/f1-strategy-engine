@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Badge, Card, ErrorNote, SectionTitle, Spinner } from "../components/ui";
+import { pct } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
 import type { CalendarRound, CalendarResp } from "../api/types";
 import { ViewIntro } from "./common";
@@ -155,7 +156,43 @@ function NextRaceCard({
           );
         })}
       </div>
+
+      <PredictedPodium round={round.round} />
     </Card>
+  );
+}
+
+/** The model's podium call for the next race, right where people look for it.
+ *  Uses the same /predict_upcoming the Outcome tab serves; hidden if the
+ *  prediction's round doesn't match this calendar round (data lag) or errors. */
+function PredictedPodium({ round }: { round: number }) {
+  const up = useAsync(() => api.predictUpcoming(), []);
+  if (up.error || (up.data && up.data.next_round !== round)) return null;
+  if (!up.data) return null;
+  const podium = up.data.predictions.slice(0, 3);
+  return (
+    <div className="mt-4 border-t border-line pt-3">
+      <div className="mb-2 flex items-baseline justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+          🔮 Model's predicted podium
+        </span>
+        <a href="#/outcome" className="font-mono text-[11px] text-accent transition hover:opacity-80">
+          tune the grid in Outcome →
+        </a>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {podium.map((p, i) => (
+          <span key={p.driver} className="rounded-lg border border-line-card bg-surface-inset px-3 py-1.5">
+            <span className="mr-1.5 font-mono text-[11px] text-ink-faint">P{i + 1}</span>
+            <span className="font-700 text-ink">{p.driver}</span>{" "}
+            <span className="nums font-mono text-[12px] text-accent">{pct(p.podium_prob)}</span>
+          </span>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[11px] text-ink-muted">
+        From current form; the grid defaults to qualifying form until the real grid is set.
+      </p>
+    </div>
   );
 }
 

@@ -1,13 +1,17 @@
-import { useState } from "react";
-import StrategyView from "./views/StrategyView";
-import RaceHubView from "./views/RaceHubView";
-import UndercutView from "./views/UndercutView";
-import OutcomeView from "./views/OutcomeView";
-import StandingsView from "./views/StandingsView";
-import ProfilesView from "./views/ProfilesView";
-import NewsView from "./views/NewsView";
-import CalendarView from "./views/CalendarView";
-import LiveView from "./views/LiveView";
+import { Suspense, lazy, useEffect, useState } from "react";
+import { Spinner } from "./components/ui";
+
+// Views are lazy-loaded: each section (and the chart library the heavy ones
+// pull in) ships as its own chunk instead of one entry bundle.
+const StrategyView = lazy(() => import("./views/StrategyView"));
+const RaceHubView = lazy(() => import("./views/RaceHubView"));
+const UndercutView = lazy(() => import("./views/UndercutView"));
+const OutcomeView = lazy(() => import("./views/OutcomeView"));
+const StandingsView = lazy(() => import("./views/StandingsView"));
+const ProfilesView = lazy(() => import("./views/ProfilesView"));
+const NewsView = lazy(() => import("./views/NewsView"));
+const CalendarView = lazy(() => import("./views/CalendarView"));
+const LiveView = lazy(() => import("./views/LiveView"));
 
 const REPO = "https://github.com/ShivekRanjan/f1-strategy-engine";
 
@@ -26,8 +30,28 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 const GROUP_ORDER = ["Strategy", "Race weekend", "Championship", "Paddock"] as const;
 
+// --- tiny hash router: the tab lives in the URL (#/standings), so refresh
+// keeps your place, back/forward work, and sections are deep-linkable.
+function tabFromHash(): TabId {
+  const h = window.location.hash.replace(/^#\/?/, "");
+  return (TABS.some((t) => t.id === h) ? h : "strategy") as TabId;
+}
+
+function useHashTab(): [TabId, (id: TabId) => void] {
+  const [tab, setTabState] = useState<TabId>(tabFromHash);
+  useEffect(() => {
+    const onHash = () => setTabState(tabFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  const setTab = (id: TabId) => {
+    window.location.hash = `/${id}`; // hashchange listener syncs the state
+  };
+  return [tab, setTab];
+}
+
 export default function App() {
-  const [tab, setTab] = useState<TabId>("strategy");
+  const [tab, setTab] = useHashTab();
   const active = TABS.find((t) => t.id === tab)!;
 
   return (
@@ -89,7 +113,9 @@ export default function App() {
             <span className="text-ink-faint">2023–26 · CRN</span>
           </div>
         </div>
-        <main className="mx-auto max-w-[1180px] px-5 py-6">{active.el}</main>
+        <main className="mx-auto max-w-[1180px] px-5 py-6">
+          <Suspense fallback={<Spinner label="Loading…" />}>{active.el}</Suspense>
+        </main>
       </div>
     </div>
   );
