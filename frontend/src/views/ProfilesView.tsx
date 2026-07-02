@@ -29,9 +29,9 @@ export default function ProfilesView() {
   return (
     <div className="space-y-5">
       <ViewIntro>
-        Career and per-season records for every driver and constructor in the dataset — wins,
-        podiums, points, form, and the classic <strong>teammate head-to-head</strong> (who
-        out-qualified and out-raced whom).
+        Per-season and aggregate records for every driver and constructor, plus the classic{" "}
+        <strong>teammate head-to-head</strong> (who out-qualified and out-raced whom). Totals cover{" "}
+        <strong>this dataset’s window (2023–26)</strong> — they’re not all-time career figures.
       </ViewIntro>
       <div className="flex gap-2">
         {(["drivers", "constructors"] as Mode[]).map((m) => (
@@ -108,15 +108,25 @@ function DriverBody({ p }: { p: DriverProfile }) {
         </div>
       </Card>
 
-      {/* Career metrics */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-        <Metric label="Races" value={c.races} />
-        <Metric label="Wins" value={c.wins} accent={c.wins > 0} />
-        <Metric label="Podiums" value={c.podiums} />
-        <Metric label="Points" value={(c.points ?? 0).toFixed(0)} />
-        <Metric label="Best" value={c.best ? `P${c.best}` : "—"} />
-        <Metric label="Avg finish" value={c.avg_finish ? `P${c.avg_finish.toFixed(1)}` : "—"} />
-        <Metric label="DNFs" value={c.dnf} />
+      {/* Window totals (2023–26 — not all-time career) */}
+      <div>
+        <div className="mb-2 flex items-baseline justify-between">
+          <SectionTitle>
+            {p.seasons[0]}–{String(p.seasons.at(-1)).slice(2)} totals
+          </SectionTitle>
+          <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-faint">
+            within dataset · not all-time career
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+          <Metric label="Races" value={c.races} />
+          <Metric label="Wins" value={c.wins} accent={c.wins > 0} />
+          <Metric label="Podiums" value={c.podiums} />
+          <Metric label="Points" value={(c.points ?? 0).toFixed(0)} />
+          <Metric label="Best" value={c.best ? `P${c.best}` : "—"} />
+          <Metric label="Avg finish" value={c.avg_finish ? `P${c.avg_finish.toFixed(1)}` : "—"} />
+          <Metric label="DNFs" value={c.dnf} />
+        </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
@@ -296,12 +306,22 @@ function ConstructorBody({ p }: { p: ConstructorProfile }) {
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Metric label="Race entries" value={c.races} />
-        <Metric label="Wins" value={c.wins} accent={c.wins > 0} />
-        <Metric label="Podiums" value={c.podiums} />
-        <Metric label="Points" value={(c.points ?? 0).toFixed(0)} />
-        <Metric label="Best" value={c.best ? `P${c.best}` : "—"} />
+      <div>
+        <div className="mb-2 flex items-baseline justify-between">
+          <SectionTitle>
+            {p.seasons[0]}–{String(p.seasons.at(-1)).slice(2)} totals
+          </SectionTitle>
+          <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-faint">
+            within dataset · not all-time
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <Metric label="Race entries" value={c.races} />
+          <Metric label="Wins" value={c.wins} accent={c.wins > 0} />
+          <Metric label="Podiums" value={c.podiums} />
+          <Metric label="Points" value={(c.points ?? 0).toFixed(0)} />
+          <Metric label="Best" value={c.best ? `P${c.best}` : "—"} />
+        </div>
       </div>
 
       <PointsBySeason data={p.by_season.map((s) => ({ label: String(s.season), points: s.points ?? 0 }))} />
