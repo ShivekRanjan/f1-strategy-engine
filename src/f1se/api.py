@@ -35,15 +35,21 @@ def _warm_caches() -> None:  # pragma: no cover - deploy-time optimisation
         _upcoming_context()
         cached_standings(None)
 
-        # Pre-run the Strategy tab's default view for the current season's
-        # circuits (the exact parameters the frontend sends by default), so
-        # switching circuits hits the cache instead of a multi-second sim.
+        # Pre-run the Strategy tab's default view for EVERY circuit under its
+        # own latest season — exactly the request the frontend sends (it picks
+        # each track's last season with data). Current-season circuits first,
+        # since they're the likeliest first clicks.
         latest = max(engine.all_seasons())
-        for track in engine.circuits_for_season(latest):
+        current = set(engine.circuits_for_season(latest))
+        ordered = [t for t in engine.tracks() if t in current] + \
+                  [t for t in engine.tracks() if t not in current]
+        for track in ordered:
             try:
+                seasons = engine.seasons(track)
                 _recommend_cached(
                     engine, track=track, objective="mean", use_cliff=True,
-                    max_stops=2, n_runs=2000, top_k=7, season=latest,
+                    max_stops=2, n_runs=2000, top_k=7,
+                    season=seasons[-1] if seasons else None,
                     sc_scale=1.0, track_temp=35,
                 )
             except Exception:
