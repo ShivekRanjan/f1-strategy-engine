@@ -11,6 +11,11 @@ quantified uncertainty, including the ongoing **2026 season** modelled across
 the regulation reset — grown into a full **F1 OS**: one app for strategy,
 predictions, standings, race analysis, the calendar, and the news.
 
+### ▶ [**Live demo — f1-strategy-engine.vercel.app**](https://f1-strategy-engine.vercel.app/)
+
+*(The API runs on a free tier that sleeps when idle — the first load can take
+~30–60 s to wake it; after that it's fast.)*
+
 <!-- TODO: add a screenshot/GIF of the React UI to assets/ (Race Hub or Live Race). -->
 
 A **React + Vite** app over a **FastAPI** service wrapping the engine — nine
