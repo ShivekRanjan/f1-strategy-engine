@@ -13,6 +13,7 @@ const ProfilesView = lazy(() => import("./views/ProfilesView"));
 const NewsView = lazy(() => import("./views/NewsView"));
 const CalendarView = lazy(() => import("./views/CalendarView"));
 const LiveView = lazy(() => import("./views/LiveView"));
+const AboutView = lazy(() => import("./views/AboutView"));
 
 const REPO = "https://github.com/ShivekRanjan/f1-strategy-engine";
 
@@ -27,6 +28,7 @@ const TABS = [
   { id: "profiles", label: "Drivers & Teams", group: "Championship", el: <ProfilesView /> },
   { id: "outcome", label: "Outcome", group: "Championship", el: <OutcomeView /> },
   { id: "news", label: "News", group: "Paddock", el: <NewsView /> },
+  { id: "about", label: "About", group: "Paddock", el: <AboutView /> },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
