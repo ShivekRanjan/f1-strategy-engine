@@ -27,13 +27,27 @@ def _warm_caches() -> None:  # pragma: no cover - deploy-time optimisation
     first real request warms that cache instead.
     """
     try:
-        get_engine()
+        engine = get_engine()
         from f1se.standalone.outcome import _upcoming_context, cached_outcome
         from f1se.standalone.standings import cached_standings
 
         cached_outcome()
         _upcoming_context()
         cached_standings(None)
+
+        # Pre-run the Strategy tab's default view for the current season's
+        # circuits (the exact parameters the frontend sends by default), so
+        # switching circuits hits the cache instead of a multi-second sim.
+        latest = max(engine.all_seasons())
+        for track in engine.circuits_for_season(latest):
+            try:
+                _recommend_cached(
+                    engine, track=track, objective="mean", use_cliff=True,
+                    max_stops=2, n_runs=2000, top_k=7, season=latest,
+                    sc_scale=1.0, track_temp=35,
+                )
+            except Exception:
+                continue
     except Exception:
         pass
 
@@ -69,6 +83,33 @@ app.add_middleware(
 def get_engine() -> StrategyEngine:
     """Build the engine once (cached) from the processed datasets."""
     return StrategyEngine.from_processed()
+
+
+# ---- recommend cache ---------------------------------------------------------
+# The Monte-Carlo optimiser is seeded (seed=0), so identical inputs always give
+# identical outputs — caching is a pure win, and it matters: on a small cloud
+# CPU a full /recommend costs several seconds. Keyed on the engine identity too,
+# so tests that inject a synthetic engine never see another engine's results.
+_REC_CACHE: dict[tuple, dict] = {}
+_REC_CACHE_MAX = 512
+
+
+def _recommend_cached(engine: StrategyEngine, *, track: str, objective: str, use_cliff: bool,
+                      max_stops: int, n_runs: int, top_k: int, season: int | None,
+                      sc_scale: float, track_temp: float | None) -> dict:
+    key = (id(engine), track, objective, use_cliff, max_stops, n_runs, top_k,
+           season, sc_scale, track_temp)
+    hit = _REC_CACHE.get(key)
+    if hit is not None:
+        return hit
+    out = engine.recommend(
+        track, objective=objective, use_cliff=use_cliff, max_stops=max_stops,
+        n_runs=n_runs, top_k=top_k, season=season, sc_scale=sc_scale, track_temp=track_temp,
+    )
+    if len(_REC_CACHE) >= _REC_CACHE_MAX:
+        _REC_CACHE.clear()
+    _REC_CACHE[key] = out
+    return out
 
 
 class RecommendRequest(BaseModel):
@@ -166,8 +207,8 @@ def degradation(track: str, season: int | None = None, cliff: bool = True,
 @app.post("/recommend")
 def recommend(req: RecommendRequest, engine: StrategyEngine = Depends(get_engine)) -> dict:
     try:
-        return engine.recommend(
-            req.track, objective=req.objective, use_cliff=req.use_cliff,
+        return _recommend_cached(
+            engine, track=req.track, objective=req.objective, use_cliff=req.use_cliff,
             max_stops=req.max_stops, n_runs=req.n_runs, top_k=req.top_k,
             season=req.season, sc_scale=req.sc_scale, track_temp=req.track_temp,
         )

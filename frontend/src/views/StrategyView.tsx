@@ -101,12 +101,21 @@ function Dashboard({ tracks }: { tracks: TrackInfo[] }) {
         {!rec.data && !rec.error && <CardSkeleton label="Searching strategies…" height={380} />}
         {rec.data && best && (
           <>
-            <RecommendationBanner rec={rec.data} best={best} />
-            <div className="grid gap-5 xl:grid-cols-2">
-              <DegradationCard deg={deg.data} loading={deg.loading} cliff={cliff} />
-              <OutcomeCard sim={sim.data} />
+            {rec.loading && (
+              <div className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2">
+                <Spinner label="Recalculating for the new selection… (showing the previous result meanwhile)" />
+              </div>
+            )}
+            <div className={rec.loading ? "opacity-40 transition-opacity" : "transition-opacity"}>
+              <div className="space-y-5">
+                <RecommendationBanner rec={rec.data} best={best} />
+                <div className="grid gap-5 xl:grid-cols-2">
+                  <DegradationCard deg={deg.data} loading={deg.loading} cliff={cliff} />
+                  <OutcomeCard sim={sim.data} />
+                </div>
+                <ShortlistCard rec={rec.data} />
+              </div>
             </div>
-            <ShortlistCard rec={rec.data} />
           </>
         )}
       </div>
