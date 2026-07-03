@@ -145,7 +145,8 @@ export function ErrorNote({ error }: { error: string }) {
         <>
           <span className="font-600">Couldn’t reach the engine.</span> {error}
           <div className="mt-1 text-xs text-ink-muted">
-            Is the API running? <code className="text-ink">uvicorn f1se.api:app</code>
+            The API may be waking from sleep (free hosting takes ~30–60s) — refresh in a moment.
+            Running locally? <code className="text-ink">uvicorn f1se.api:app</code>
           </div>
         </>
       ) : (

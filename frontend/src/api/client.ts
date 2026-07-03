@@ -22,22 +22,37 @@ import type {
 
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-  if (!res.ok) {
-    let detail = `${res.status} ${res.statusText}`;
+  // Free-tier hosting sleeps when idle and takes ~20-60s to wake, during which
+  // fetches die with a network error. Every endpoint here is read-only, so
+  // retrying network failures (NOT HTTP errors) with backoff rides out the
+  // wake-up instead of surfacing "Failed to fetch" to the user.
+  const delays = [2000, 5000, 10000];
+  for (let attempt = 0; ; attempt++) {
     try {
-      const body = await res.json();
-      if (body?.detail) detail = String(body.detail);
-    } catch {
-      /* non-JSON error body */
+      const res = await fetch(`${BASE}${path}`, {
+        headers: { "Content-Type": "application/json" },
+        ...init,
+      });
+      if (!res.ok) {
+        let detail = `${res.status} ${res.statusText}`;
+        try {
+          const body = await res.json();
+          if (body?.detail) detail = String(body.detail);
+        } catch {
+          /* non-JSON error body */
+        }
+        throw new Error(detail); // real API error — don't retry
+      }
+      return (await res.json()) as T;
+    } catch (e) {
+      const isNetwork = e instanceof TypeError; // fetch network failure
+      if (!isNetwork || attempt >= delays.length) throw e;
+      await sleep(delays[attempt]);
     }
-    throw new Error(detail);
   }
-  return res.json() as Promise<T>;
 }
 
 const post = <T>(path: string, body: unknown) =>

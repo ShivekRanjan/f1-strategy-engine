@@ -8,6 +8,8 @@ Run:  uvicorn f1se.api:app --reload
 from __future__ import annotations
 
 import os
+import threading
+from contextlib import asynccontextmanager
 from functools import lru_cache
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -16,10 +18,39 @@ from pydantic import BaseModel, Field
 
 from f1se.engine import StrategyEngine
 
+
+def _warm_caches() -> None:  # pragma: no cover - deploy-time optimisation
+    """Pre-compute the heavy caches (engine + trained models) in the background.
+
+    On a small cloud instance the first request after a cold start otherwise
+    pays for model training (~10-15s). Best-effort: any failure just means the
+    first real request warms that cache instead.
+    """
+    try:
+        get_engine()
+        from f1se.standalone.outcome import _upcoming_context, cached_outcome
+        from f1se.standalone.standings import cached_standings
+
+        cached_outcome()
+        _upcoming_context()
+        cached_standings(None)
+    except Exception:
+        pass
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    # Opt-in via env (set in the Dockerfile) so local dev and tests skip it.
+    if os.environ.get("F1SE_WARM_CACHES") == "1":
+        threading.Thread(target=_warm_caches, daemon=True).start()
+    yield
+
+
 app = FastAPI(
     title="F1 Strategy Engine",
     version="0.1.0",
     description="Recommends pit strategy (when to stop, which compounds) with quantified uncertainty.",
+    lifespan=_lifespan,
 )
 
 # The React frontend runs on a different origin in dev (Vite :5173) and on its

@@ -24,6 +24,9 @@ COPY data/processed/dry_laps.parquet \
 
 # FastF1 cache dir is writable (only used if data is regenerated at runtime).
 ENV F1SE_CACHE_DIR=/tmp/f1se_cache
+# Pre-train the heavy caches in a background thread at boot, so the first
+# request after a cold start does not pay ~10-15s of model training.
+ENV F1SE_WARM_CACHES=1
 
 EXPOSE 8000
 # Honour $PORT when a host injects one (Render/Fly), else default to 8000.

@@ -26,9 +26,11 @@ export default {
           DEFAULT: "#f2f6fa",
           soft: "#dbe3ec",
           muted: "#aab3c0",
-          dim: "#6b7585",
-          faint: "#5c6675",
-          fainter: "#3f4856",
+          // dim/faint carry real labels at small sizes — kept above the WCAG AA
+          // 4.5:1 contrast floor on the page navy (measured ~6.2:1 / ~5.2:1).
+          dim: "#8994a4",
+          faint: "#7d8698",
+          fainter: "#3f4856", // decorative only (never body/label text)
         },
         accent: { DEFAULT: "#2dd4bf", ink: "#06231f", dark: "#14b8a6" },
         // Tyre compounds (also the logo bars / mean marker stay red+yellow).

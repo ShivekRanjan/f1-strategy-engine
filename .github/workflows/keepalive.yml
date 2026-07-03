@@ -1,0 +1,17 @@
+# Ping the deployed API every 10 minutes so Render's free instance never
+# sleeps (free tier = 750 instance-hours/month — enough to stay up 24/7).
+# Without this, the instance idles out after ~15 min and the next visitor
+# waits 20-60s for the wake-up.
+name: Keep the API awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health
+        run: curl -sf -m 90 https://f1-strategy-engine.onrender.com/health
