@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { api } from "../api/client";
-import { Field, Select, Slider } from "../components/controls";
+import { Combobox, Field, Select, Slider } from "../components/controls";
 import { Callout, Card, ErrorNote, Metric, SectionTitle, Spinner } from "../components/ui";
-import { gapText } from "../lib/format";
+import { gapText, trackSearchText } from "../lib/format";
 import { useAsync, useDebounced } from "../lib/useAsync";
 import { TracksGate, ViewIntro, pickDefaultTrack } from "./common";
 
@@ -25,7 +25,13 @@ function Inner({ tracks }: { tracks: string[] }) {
       <Card className="p-4">
         <Field label="Circuit">
           <div className="max-w-sm">
-            <Select value={track} options={tracks} onChange={setTrack} />
+            <Combobox
+              value={track}
+              options={tracks}
+              onChange={setTrack}
+              getSearchText={trackSearchText}
+              placeholder="Search circuits…"
+            />
           </div>
         </Field>
       </Card>

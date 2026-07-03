@@ -13,7 +13,7 @@ import { api } from "../api/client";
 import { Column, DataTable } from "../components/DataTable";
 import { Combobox, Field, Select } from "../components/controls";
 import { Badge, Callout, Card, CardSkeleton, ErrorNote, SectionTitle, Skeleton, Spinner } from "../components/ui";
-import { beatsPick, clock, compoundColor, fmtPlan, pct, teamColor } from "../lib/format";
+import { beatsPick, clock, compoundColor, fmtPlan, pct, teamColor, trackSearchText } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
 import type {
   DegradationResp,
@@ -72,6 +72,7 @@ function Inner() {
               value={track ?? ""}
               options={circuits.data?.circuits ?? []}
               onChange={(v) => setTrack(v)}
+              getSearchText={trackSearchText}
               placeholder="Search circuits…"
             />
           </Field>

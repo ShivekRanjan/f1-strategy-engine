@@ -14,7 +14,7 @@ import { api } from "../api/client";
 import { Column, DataTable } from "../components/DataTable";
 import { Combobox, Field, Select, Slider } from "../components/controls";
 import { Badge, Callout, Card, ErrorNote, Metric, SectionTitle, Spinner } from "../components/ui";
-import { beatsPick, clock, secs } from "../lib/format";
+import { beatsPick, clock, secs, trackSearchText } from "../lib/format";
 import { useAsync, useDebounced } from "../lib/useAsync";
 import type { LapHistory, LiveRecommendation, Nowcast } from "../api/types";
 import { TracksGate, ViewIntro, pickDefaultTrack } from "./common";
@@ -77,6 +77,7 @@ function Inner({ tracks: _tracks }: { tracks: string[] }) {
               value={track ?? ""}
               options={circuits.data?.circuits ?? []}
               onChange={(v) => setTrack(v)}
+              getSearchText={trackSearchText}
               placeholder="Search circuits…"
             />
           </Field>

@@ -84,3 +84,39 @@ export function teamColor(team: string): string {
   for (const key in TEAM_COLOR) if (t.includes(key)) return TEAM_COLOR[key];
   return "#9a9aa6";
 }
+
+// Venue aliases so circuit search matches how fans think ("silverstone",
+// "monza", "spa") even though the data uses event names ("British Grand Prix").
+const TRACK_ALIASES: Record<string, string> = {
+  british: "silverstone",
+  italian: "monza",
+  "emilia romagna": "imola",
+  belgian: "spa francorchamps",
+  japanese: "suzuka",
+  australian: "melbourne albert park",
+  monaco: "monte carlo",
+  canadian: "montreal villeneuve",
+  "abu dhabi": "yas marina",
+  bahrain: "sakhir",
+  "saudi arabian": "jeddah",
+  "united states": "austin cota",
+  "mexico city": "mexico",
+  "são paulo": "interlagos brazil",
+  "las vegas": "vegas",
+  hungarian: "hungaroring budapest",
+  dutch: "zandvoort",
+  azerbaijan: "baku",
+  qatar: "losail",
+  singapore: "marina bay",
+  chinese: "shanghai",
+  austrian: "red bull ring spielberg",
+  spanish: "barcelona catalunya",
+  barcelona: "catalunya spanish",
+};
+
+/** Text a circuit should match against when searching: name + venue aliases. */
+export function trackSearchText(track: string): string {
+  const t = (track || "").toLowerCase();
+  for (const key in TRACK_ALIASES) if (t.includes(key)) return `${t} ${TRACK_ALIASES[key]}`;
+  return t;
+}

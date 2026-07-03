@@ -54,12 +54,15 @@ export function Combobox<T extends string>({
   options,
   onChange,
   getLabel = (v) => String(v),
+  getSearchText,
   placeholder = "Type to search…",
 }: {
   value: T | "";
   options: readonly T[];
   onChange: (v: T) => void;
   getLabel?: (v: T) => string;
+  /** Extra text an option matches against (e.g. venue aliases); defaults to the label. */
+  getSearchText?: (v: T) => string;
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -70,8 +73,10 @@ export function Combobox<T extends string>({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? options.filter((o) => getLabel(o).toLowerCase().includes(q)) : [...options];
-  }, [options, query, getLabel]);
+    if (!q) return [...options];
+    const text = (o: T) => (getSearchText ? getSearchText(o) : getLabel(o)).toLowerCase();
+    return options.filter((o) => text(o).includes(q));
+  }, [options, query, getLabel, getSearchText]);
 
   // Close on outside click.
   useEffect(() => {

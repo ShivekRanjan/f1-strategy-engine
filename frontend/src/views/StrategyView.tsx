@@ -15,7 +15,7 @@ import {
 import { api } from "../api/client";
 import { Field, Segmented, Select, Slider } from "../components/controls";
 import { Callout, Card, CardSkeleton, ErrorNote, SectionTitle, Spinner } from "../components/ui";
-import { beatsPick, clock, compoundColor } from "../lib/format";
+import { beatsPick, clock, compoundColor, trackSearchText } from "../lib/format";
 import { useAsync, useDebounced } from "../lib/useAsync";
 import type {
   DegradationResp,
@@ -134,12 +134,30 @@ function Rail(props: {
 }) {
   const p = props;
   const pSC = p.info ? 1 - (1 - p.info.sc_prob_per_lap) ** p.info.total_laps : null;
+  // Filter the circuit list as you type — 24+ circuits is too many to scroll.
+  const [circuitQ, setCircuitQ] = useState("");
+  const q = circuitQ.trim().toLowerCase();
+  const shown = q
+    ? p.tracks.filter(
+        (t) =>
+          trackSearchText(t.track).includes(q) || shortName(t.track).toLowerCase().includes(q),
+      )
+    : p.tracks;
   return (
     <Card className="h-fit space-y-5 p-4">
       <div>
         <SectionTitle>Circuit</SectionTitle>
+        <input
+          value={circuitQ}
+          onChange={(e) => setCircuitQ(e.target.value)}
+          placeholder="Search circuits…"
+          className="mb-2 w-full rounded-lg border border-line bg-carbon-700 px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink-dim focus:border-f1/60 focus:ring-1 focus:ring-f1/40"
+        />
         <div className="max-h-60 space-y-1.5 overflow-y-auto pr-1">
-          {p.tracks.map((t) => {
+          {shown.length === 0 && (
+            <p className="px-1 py-2 text-sm text-ink-muted">No circuit matches “{circuitQ}”.</p>
+          )}
+          {shown.map((t) => {
             const active = t.track === p.track;
             return (
               <button
