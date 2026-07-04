@@ -80,10 +80,14 @@ def enumerate_strategies(
       * pit laps on a ``pit_grid_step`` grid;
       * at least two distinct compounds used (the dry-race rule).
     """
-    grid = list(range(min_stint, total_laps - min_stint + 1, pit_grid_step))
     out: list[Strategy] = []
 
     for n_stops in range(1, max_stops + 1):
+        # The pit-lap grid coarsens for 3+ stops: the combination count explodes
+        # (~10k at step 3) while pit-lap precision matters least there — the
+        # 3-stop layer is about *whether* an extra stop pays, not its exact lap.
+        step = pit_grid_step if n_stops < 3 else pit_grid_step + 2
+        grid = list(range(min_stint, total_laps - min_stint + 1, step))
         seqs = [c for c in product(compounds, repeat=n_stops + 1) if len(set(c)) >= 2]
         for pit_laps in combinations(grid, n_stops):
             bounds = [0, *pit_laps, total_laps]
@@ -114,6 +118,8 @@ def recommend_strategy(
     pit_loss_sc_s: float = 11.0,
     sc_lap_factor: float = 1.4,
     stop_penalty_s: float = 0.0,
+    screen_runs: int = 300,
+    screen_keep: int = 64,
     **enum_kwargs,
 ) -> OptimizationResult:
     """Search the strategy space and return the best plan with uncertainty.
@@ -122,6 +128,16 @@ def recommend_strategy(
     ``stop_penalty_s`` charges each pit stop an extra cost *for ranking only* (the
     track-position / execution cost the free-air sim omits — see
     :class:`f1se.models.overtaking.OvertakingPrior`); reported race times are raw.
+
+    **Coarse-to-fine search.** When the candidate space is large (a 3-stop grid
+    is ~10k strategies), simulating every candidate at full ``n_runs`` is O(10^7)
+    race-laps. Instead, every candidate is screened on a small common-random-
+    numbers draw (``screen_runs``), the best ``screen_keep`` survivors are then
+    re-simulated at full ``n_runs``, and all reported numbers come from the full
+    draw. With paired sampling the screen's ranking noise is far below the
+    seconds-scale gaps between plans, so the final winner is preserved while the
+    search cost drops ~``n_runs/screen_runs``-fold. Screening is skipped when it
+    couldn't help (few candidates, or ``n_runs`` already small).
     """
     if objective not in OBJECTIVES:
         raise ValueError(f"objective must be one of {list(OBJECTIVES)}")
@@ -131,17 +147,30 @@ def recommend_strategy(
         candidates = enumerate_strategies(total_laps, **enum_kwargs)
     if not candidates:
         raise ValueError("no candidate strategies to evaluate")
+    n_candidates = len(candidates)
 
-    # One shared set of sampled races for every candidate (common random numbers).
-    sc_mask, noise = draw_scenarios(total_laps, n_runs, sc_model=sc_model,
-                                    pace_noise_s=pace_noise_s, seed=seed)
+    def _totals_for(cands: list[Strategy], runs: int, draw_seed: int) -> np.ndarray:
+        # One shared set of sampled races per stage (common random numbers).
+        sc_mask, noise = draw_scenarios(total_laps, runs, sc_model=sc_model,
+                                        pace_noise_s=pace_noise_s, seed=draw_seed)
+        out = np.empty((len(cands), runs), dtype=float)
+        for i, strat in enumerate(cands):
+            green_det, pit_mask = green_and_pit(strat, total_laps, pace_fn)
+            out[i] = race_totals(green_det, pit_mask, sc_mask, noise, pit_loss_s=pit_loss_s,
+                                 pit_loss_sc_s=pit_loss_sc_s, sc_lap_factor=sc_lap_factor)
+        return out
 
-    totals = np.empty((len(candidates), n_runs), dtype=float)
-    for i, strat in enumerate(candidates):
-        green_det, pit_mask = green_and_pit(strat, total_laps, pace_fn)
-        totals[i] = race_totals(green_det, pit_mask, sc_mask, noise, pit_loss_s=pit_loss_s,
-                                pit_loss_sc_s=pit_loss_sc_s, sc_lap_factor=sc_lap_factor)
+    keep = max(screen_keep, top_k)
+    if screen_runs > 0 and n_runs > 2 * screen_runs and n_candidates > keep:
+        # Stage 1: cheap screen of everything (independent draw, seed offset).
+        screen_totals = _totals_for(candidates, screen_runs, seed + 1)
+        screen_scores = np.array([score_fn(screen_totals[i]) for i in range(n_candidates)])
+        screen_scores += np.array([c.n_stops * stop_penalty_s for c in candidates])
+        survivors = np.argsort(screen_scores)[:keep]
+        candidates = [candidates[int(i)] for i in survivors]
 
+    # Stage 2 (or the only stage): full-precision evaluation.
+    totals = _totals_for(candidates, n_runs, seed)
     scores = np.array([score_fn(totals[i]) for i in range(len(candidates))])
     # Rank on the penalised score (extra stops cost track position / risk), but
     # keep the raw samples for the reported times and paired probabilities.
@@ -170,6 +199,6 @@ def recommend_strategy(
         best=candidates[best_idx],
         best_samples=best_samples,
         shortlist=shortlist,
-        n_evaluated=len(candidates),
+        n_evaluated=n_candidates,   # the full search space, incl. screened-out plans
         objective=objective,
     )
