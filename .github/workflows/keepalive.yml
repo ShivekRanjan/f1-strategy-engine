@@ -1,7 +1,14 @@
-# Ping the deployed API every 10 minutes so Render's free instance never
-# sleeps (free tier = 750 instance-hours/month — enough to stay up 24/7).
-# Without this, the instance idles out after ~15 min and the next visitor
-# waits 20-60s for the wake-up.
+# Keep the deployed API warm and its caches primed.
+#
+# Free hosting (Render / Cloud Run scale-to-zero) idles the instance out after
+# a few minutes; the next visitor then waits for a cold start. Pinging every
+# 10 min keeps an instance alive, and hitting the read endpoints (not just
+# /health) also primes the in-process caches those pages use — so the first
+# real visitor gets warm data, not a spinner.
+#
+# Host-agnostic: set repo variable API_URL (Settings → Secrets and variables →
+# Actions → Variables) to your deployed API base to point this anywhere.
+# Defaults to the Render URL if unset.
 name: Keep the API awake
 
 on:
@@ -12,6 +19,15 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    env:
+      API_URL: ${{ vars.API_URL || 'https://f1-strategy-engine.onrender.com' }}
     steps:
-      - name: Ping /health
-        run: curl -sf -m 90 https://f1-strategy-engine.onrender.com/health
+      - name: Ping + warm caches
+        run: |
+          set -e
+          curl -sf -m 90 "$API_URL/health" >/dev/null
+          # Prime the Home page's data (best-effort — never fail the job on these).
+          curl -sf -m 90 "$API_URL/standings"       -o /dev/null || true
+          curl -sf -m 90 "$API_URL/calendar/2026"    -o /dev/null || true
+          curl -sf -m 90 -X POST -H "Content-Type: application/json" \
+               -d '{"grid":null}' "$API_URL/predict_upcoming" -o /dev/null || true

@@ -116,11 +116,18 @@ frontend on `:5173`.
 
 For a hosted demo, deploy the two pieces independently:
 
-- **API** → Render (`render.yaml` + `Dockerfile` included; injects `$PORT`, serves
-  `f1se.api:app`). Set `F1SE_CORS_ORIGINS` to your frontend origin.
+- **API** → Google Cloud Run (**recommended** — full per-request vCPU makes the
+  Monte-Carlo search several times faster than a shared free tier; step-by-step
+  in [deploy/CLOUD_RUN.md](deploy/CLOUD_RUN.md)) or Render (`render.yaml` +
+  `Dockerfile` included; injects `$PORT`). The same `Dockerfile` serves both.
+  Set `F1SE_CORS_ORIGINS` to your frontend origin to lock down CORS.
 - **Frontend** → Vercel or Netlify (Vite static build). Set the project root to
   `frontend/` and `VITE_API_BASE` to the deployed API URL. See
   [frontend/README.md](frontend/README.md).
+
+A `Keep the API awake` GitHub Action pings the deployed API every 10 min so a
+free-tier instance doesn't idle out; point it at any host via the `API_URL`
+repo variable.
 
 ## Data
 
