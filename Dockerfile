@@ -19,6 +19,7 @@ COPY data/processed/dry_laps.parquet \
      data/processed/track_status.parquet \
      data/processed/race_laps.parquet \
      data/processed/results.parquet \
+     data/processed/sprint_points.parquet \
      data/processed/lstm_nextlap.npz \
      ./data/processed/
 
