@@ -53,8 +53,15 @@ def compute_outcome(data_dir: str | Path | None = None, *, n_sims: int = 5000) -
     full = int(results.groupby("year")["round"].nunique().max())
     done = int(results[results["year"] == test_year]["round"].nunique())
     ongoing = done < full - 2
-    champ = (project_ongoing_season(results, test_year, total_races=full, n_sims=n_sims)
-             if ongoing else predict_season(results, test_year, n_sims=n_sims))
+    if ongoing:
+        # Start the projection from the official points — incl. sprint races.
+        from f1se.standalone.standings import _sprint_sums, load_sprints
+
+        extra = _sprint_sums(load_sprints(fp), test_year, "driver")
+        champ = project_ongoing_season(results, test_year, total_races=full,
+                                       n_sims=n_sims, extra_points=extra)
+    else:
+        champ = predict_season(results, test_year, n_sims=n_sims)
 
     has_points = "points" in champ.columns
     championship = [

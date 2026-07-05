@@ -15,10 +15,11 @@ export default function StandingsView() {
   return (
     <div className="space-y-5">
       <ViewIntro>
-        Live drivers’ and constructors’ championships. For the season in progress, each driver also
-        carries a <strong>title-win probability</strong> — from the same Monte-Carlo season simulator
-        the Outcome tab uses, so it reflects how much racing is still left, not a naive points
-        extrapolation.
+        Live drivers’ and constructors’ championships — points include <strong>sprint races</strong>;
+        wins and podiums count Grands Prix only (the official convention). For the season in
+        progress, each driver also carries a <strong>title-win probability</strong> — from the same
+        Monte-Carlo season simulator the Outcome tab uses, so it reflects how much racing is still
+        left, not a naive points extrapolation.
       </ViewIntro>
       {s.error && <ErrorNote error={s.error} />}
       {!s.data && !s.error && (

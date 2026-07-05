@@ -85,7 +85,7 @@ def predict_season(results: pd.DataFrame, season: int, *, n_sims: int = 5000, se
 
 def project_ongoing_season(
     results: pd.DataFrame, season: int, *, total_races: int = 24,
-    n_sims: int = 5000, seed: int = 0,
+    n_sims: int = 5000, seed: int = 0, extra_points: pd.Series | None = None,
 ) -> pd.DataFrame:
     """Mid-season title projection: current points + simulate the remaining races.
 
@@ -94,6 +94,8 @@ def project_ongoing_season(
     races of evidence exist, each simulation BOOTSTRAPS the driver's results to
     propagate how uncertain that form estimate still is. Without this, a leader
     shows a dishonest ~100% title probability after a handful of rounds.
+    ``extra_points`` (per driver) adds points the GP table misses — sprint-race
+    points — so the projection starts from the *official* standings.
     Returns (driver, win_prob, mean_points) plus the current standings, with
     ``races_done`` in ``.attrs``.
     """
@@ -101,6 +103,8 @@ def project_ongoing_season(
     done = int(sr["round"].nunique())
     field = sorted(sr["driver"].dropna().unique())
     current = sr.groupby("driver", observed=True)["points"].sum().reindex(field).fillna(0.0)
+    if extra_points is not None and len(extra_points):
+        current = current + extra_points.reindex(field).fillna(0.0)
     strengths = (sr.groupby("driver", observed=True)["points"].mean() + 0.5).reindex(field).fillna(0.5)
     remaining = max(total_races - done, 0)
 

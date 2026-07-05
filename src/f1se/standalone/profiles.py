@@ -27,6 +27,26 @@ def _results() -> pd.DataFrame | None:
     return df
 
 
+@lru_cache(maxsize=1)
+def _sprints() -> pd.DataFrame | None:
+    """Sprint points (they count toward championship totals; GP-only is wrong)."""
+    from f1se.standalone.standings import load_sprints
+
+    fp = _resolve_results(None)
+    return load_sprints(fp) if fp is not None else None
+
+
+def _sprint_pts(by: str, key: str, year: int | None = None) -> float:
+    """Sprint points summed for one driver/team (optionally one season)."""
+    sp = _sprints()
+    if sp is None:
+        return 0.0
+    rows = sp[sp[by] == key]
+    if year is not None:
+        rows = rows[rows["year"] == year]
+    return float(rows["points"].sum())
+
+
 def _latest_team(sub: pd.DataFrame) -> str:
     return str(sub.sort_values("race_idx").iloc[-1]["team"])
 
@@ -48,7 +68,8 @@ def drivers_index() -> list[dict] | None:
         rows.append({
             "driver": str(code), "team": _latest_team(sub),
             "last_season": seasons[-1], "seasons": seasons,
-            "points": _f(sub["_pts"].sum()), "wins": int((sub["_pos"] == 1).sum()),
+            "points": _f(sub["_pts"].sum() + _sprint_pts("driver", str(code))),
+            "wins": int((sub["_pos"] == 1).sum()),
         })
     # Most-recently-active first, then by career points (current grid surfaces on top).
     rows.sort(key=lambda r: (-r["last_season"], -(r["points"] or 0)))
@@ -64,7 +85,8 @@ def constructors_index() -> list[dict] | None:
         seasons = sorted(int(y) for y in sub["year"].unique())
         rows.append({
             "team": str(team), "last_season": seasons[-1], "seasons": seasons,
-            "points": _f(sub["_pts"].sum()), "wins": int((sub["_pos"] == 1).sum()),
+            "points": _f(sub["_pts"].sum() + _sprint_pts("team", str(team))),
+            "wins": int((sub["_pos"] == 1).sum()),
         })
     rows.sort(key=lambda r: (-r["last_season"], -(r["points"] or 0)))
     return rows
@@ -131,7 +153,9 @@ def driver_profile(code: str) -> dict | None:
     by_season = []
     for yr in seasons:
         s = sub[sub["year"] == yr]
-        by_season.append({"season": yr, "team": _latest_team(s), **_season_line(s)})
+        line = {"season": yr, "team": _latest_team(s), **_season_line(s)}
+        line["points"] = _f((line["points"] or 0) + _sprint_pts("driver", code, yr))
+        by_season.append(line)
 
     recent = sub.sort_values("race_idx").tail(5)
     recent_out = [{
@@ -142,9 +166,11 @@ def driver_profile(code: str) -> dict | None:
     } for _, r in recent.iterrows()]
     recent_out.reverse()  # most recent first
 
+    career = {"races": int(sub["race_idx"].nunique()), **_season_line(sub)}
+    career["points"] = _f((career["points"] or 0) + _sprint_pts("driver", code))
     return {
         "driver": str(code), "team": _latest_team(sub), "seasons": seasons,
-        "career": {"races": int(sub["race_idx"].nunique()), **_season_line(sub)},
+        "career": career,
         "by_season": by_season, "recent": recent_out,
         "h2h_season": seasons[-1], "teammate_h2h": _teammate_h2h(df, code, seasons[-1]),
     }
@@ -167,7 +193,8 @@ def constructor_profile(team: str) -> dict | None:
         by_season.append({
             "season": yr, "races": int(s["race_idx"].nunique()),
             "wins": int((pos == 1).sum()), "podiums": int((pos <= 3).sum()),
-            "points": _f(s["_pts"].sum()), "best": int(pos.min()) if pos.notna().any() else None,
+            "points": _f(s["_pts"].sum() + _sprint_pts("team", team, yr)),
+            "best": int(pos.min()) if pos.notna().any() else None,
             "drivers": sorted(str(d) for d in s["driver"].dropna().unique()),
         })
 
@@ -182,7 +209,8 @@ def constructor_profile(team: str) -> dict | None:
     return {
         "team": str(team), "seasons": seasons,
         "career": {"races": int(sub["race_idx"].nunique()), "wins": int((pos == 1).sum()),
-                   "podiums": int((pos <= 3).sum()), "points": _f(sub["_pts"].sum()),
+                   "podiums": int((pos <= 3).sum()),
+                   "points": _f(sub["_pts"].sum() + _sprint_pts("team", team)),
                    "best": int(pos.min()) if pos.notna().any() else None},
         "by_season": by_season, "drivers": drivers,
     }

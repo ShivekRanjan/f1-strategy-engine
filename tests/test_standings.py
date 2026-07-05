@@ -53,6 +53,41 @@ def test_win_prob_present_only_when_ongoing():
         assert "win_prob" not in leader
 
 
+def test_sprint_points_count_toward_standings(tmp_path):
+    """Sprint points must be in the totals — a GP-only tally can even swap
+    positions (it did, on the real 2026 table: P2/P3)."""
+    import pandas as pd
+
+    results = pd.DataFrame({
+        "year": 2030, "round": [1, 1, 2, 2], "event_name": "X GP",
+        "driver": ["AAA", "BBB", "AAA", "BBB"], "team": ["T1", "T2", "T1", "T2"],
+        "grid": 1.0, "position": [1, 2, 1, 2], "points": [25.0, 18.0, 25.0, 18.0],
+        "status": "Finished",
+    })
+    # BBB wins both sprints 8-7: GP-only would be 50-36; official is 64-52.
+    sprints = pd.DataFrame({
+        "year": 2030, "round": [1, 1, 2, 2], "event_name": "X GP",
+        "driver": ["BBB", "AAA", "BBB", "AAA"], "team": ["T2", "T1", "T2", "T1"],
+        "position": [1, 2, 1, 2], "points": [8.0, 7.0, 8.0, 7.0],
+    })
+    results.to_parquet(tmp_path / "results.parquet")
+    sprints.to_parquet(tmp_path / "sprint_points.parquet")
+
+    p = compute_standings(data_dir=tmp_path, n_sims=200)
+    assert p["includes_sprints"] is True
+    by_driver = {d["driver"]: d for d in p["drivers"]}
+    assert by_driver["AAA"]["points"] == 64.0 and by_driver["BBB"]["points"] == 52.0
+    assert by_driver["AAA"]["wins"] == 2 and by_driver["BBB"]["wins"] == 0  # GP wins only
+    by_team = {c["team"]: c for c in p["constructors"]}
+    assert by_team["T1"]["points"] == 64.0 and by_team["T2"]["points"] == 52.0
+
+    # Without the sprint file, totals fall back to GP-only (and say so).
+    (tmp_path / "sprint_points.parquet").unlink()
+    p2 = compute_standings(data_dir=tmp_path, n_sims=200)
+    assert p2["includes_sprints"] is False
+    assert {d["driver"]: d["points"] for d in p2["drivers"]} == {"AAA": 50.0, "BBB": 36.0}
+
+
 def test_historical_season_has_no_projection():
     p = _payload()
     seasons = p["seasons"]
