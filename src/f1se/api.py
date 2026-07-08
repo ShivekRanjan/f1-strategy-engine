@@ -35,21 +35,16 @@ def _warm_caches() -> None:  # pragma: no cover - deploy-time optimisation
         _upcoming_context()
         cached_standings(None)
 
-        # Pre-run the Strategy tab's default view for EVERY circuit under its
-        # own latest season — exactly the request the frontend sends (it picks
-        # each track's last season with data). Current-season circuits first,
-        # since they're the likeliest first clicks.
+        # Pre-run the Strategy tab's default view for the CURRENT season's
+        # circuits — exactly the request the frontend sends, and the likeliest
+        # first clicks. (Historical circuits stay on-demand: warming all ~25
+        # inflated the resident set on a 512 MB tier for little benefit.)
         latest = max(engine.all_seasons())
-        current = set(engine.circuits_for_season(latest))
-        ordered = [t for t in engine.tracks() if t in current] + \
-                  [t for t in engine.tracks() if t not in current]
-        for track in ordered:
+        for track in engine.circuits_for_season(latest):
             try:
-                seasons = engine.seasons(track)
                 _recommend_cached(
                     engine, track=track, objective="mean", use_cliff=True,
-                    max_stops=2, n_runs=2000, top_k=7,
-                    season=seasons[-1] if seasons else None,
+                    max_stops=2, n_runs=2000, top_k=7, season=latest,
                     sc_scale=1.0, track_temp=35,
                 )
             except Exception:
@@ -97,7 +92,7 @@ def get_engine() -> StrategyEngine:
 # CPU a full /recommend costs several seconds. Keyed on the engine identity too,
 # so tests that inject a synthetic engine never see another engine's results.
 _REC_CACHE: dict[tuple, dict] = {}
-_REC_CACHE_MAX = 512
+_REC_CACHE_MAX = 200
 
 
 def _recommend_cached(engine: StrategyEngine, *, track: str, objective: str, use_cliff: bool,

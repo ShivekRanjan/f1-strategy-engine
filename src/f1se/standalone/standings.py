@@ -12,6 +12,7 @@ predictor and is served without the :class:`~f1se.engine.StrategyEngine`.
 
 from __future__ import annotations
 
+import gc
 from functools import lru_cache
 from pathlib import Path
 
@@ -205,6 +206,7 @@ def _fetch_new_rounds(season: int, have_rounds: set[int]):
                 "status": r["Status"].astype("string"),
             }))
             added.append(rnd)
+            del s, r  # release the FastF1 session promptly (memory on a small tier)
         except Exception:  # pragma: no cover - network; race not classified yet
             continue
         if "sprint" in str(ev.get("EventFormat", "")).lower():
@@ -218,8 +220,10 @@ def _fetch_new_rounds(season: int, have_rounds: set[int]):
                     "position": pd.to_numeric(sr["Position"], errors="coerce"),
                     "points": pd.to_numeric(sr["Points"], errors="coerce").fillna(0.0),
                 }))
+                del ss, sr
             except Exception:  # pragma: no cover - network
                 pass
+        gc.collect()  # keep peak RSS down between session pulls
 
     race_df = pd.concat(races, ignore_index=True) if races else empty_r
     sprint_df = pd.concat(sprints, ignore_index=True) if sprints else empty_s
