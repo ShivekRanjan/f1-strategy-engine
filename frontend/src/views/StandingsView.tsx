@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Column, DataTable } from "../components/DataTable";
 import { Badge, Callout, Card, CardSkeleton, ErrorNote, SectionTitle } from "../components/ui";
@@ -12,6 +12,29 @@ export default function StandingsView() {
   const [season, setSeason] = useState<number | null>(null);
   const s = useAsync(() => api.standings(season ?? undefined), [season]);
 
+  // A manual "refresh" overlay: pull the live standings (committed data topped
+  // up with any race since) and show them in place of the committed ones.
+  const [refreshed, setRefreshed] = useState<StandingsResp | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshErr, setRefreshErr] = useState<string | null>(null);
+  useEffect(() => {
+    setRefreshed(null);
+    setRefreshErr(null);
+  }, [season]);
+
+  const doRefresh = async () => {
+    setRefreshing(true);
+    setRefreshErr(null);
+    try {
+      setRefreshed(await api.standingsRefresh(season ?? undefined));
+    } catch (e) {
+      setRefreshErr(String((e as Error)?.message ?? e));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const data = refreshed ?? s.data;
   return (
     <div className="space-y-5">
       <ViewIntro>
@@ -25,7 +48,16 @@ export default function StandingsView() {
       {!s.data && !s.error && (
         <CardSkeleton label="Tallying the championship…" height={420} />
       )}
-      {s.data && <Body data={s.data} season={season} setSeason={setSeason} />}
+      {data && (
+        <Body
+          data={data}
+          season={season}
+          setSeason={setSeason}
+          onRefresh={doRefresh}
+          refreshing={refreshing}
+          refreshErr={refreshErr}
+        />
+      )}
     </div>
   );
 }
@@ -34,15 +66,21 @@ function Body({
   data,
   season,
   setSeason,
+  onRefresh,
+  refreshing,
+  refreshErr,
 }: {
   data: StandingsResp;
   season: number | null;
   setSeason: (y: number | null) => void;
+  onRefresh: () => void;
+  refreshing: boolean;
+  refreshErr: string | null;
 }) {
   const active = season ?? data.latest;
   return (
     <>
-      {/* Season selector */}
+      {/* Season selector + refresh */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">
           Season
@@ -68,7 +106,18 @@ function Body({
             live · {data.races_done} of {data.total_races} races
           </Badge>
         )}
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          title="Pull the latest official result from FastF1 (no redeploy needed)"
+          className="ml-auto flex items-center gap-1.5 rounded-md border border-line-ctl px-3 py-1.5 font-mono text-[12px] text-ink-dim transition hover:border-line-hover hover:text-ink-soft disabled:opacity-60"
+        >
+          <span className={refreshing ? "inline-block animate-spin" : ""}>↻</span>
+          {refreshing ? "Checking for new races…" : "Refresh"}
+        </button>
       </div>
+
+      <RefreshNote data={data} error={refreshErr} />
 
       {data.ongoing && <LeaderStrip data={data} />}
 
@@ -77,6 +126,33 @@ function Body({
         <ConstructorsCard rows={data.constructors} />
       </div>
     </>
+  );
+}
+
+function RefreshNote({ data, error }: { data: StandingsResp; error: string | null }) {
+  if (error) {
+    return (
+      <Callout tone="warn">
+        Couldn’t reach FastF1 to refresh — showing the last saved standings. {error}
+      </Callout>
+    );
+  }
+  if (!data.refreshed) return null;
+  const when = data.as_of
+    ? new Date(data.as_of).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    : "";
+  const added = data.added_rounds ?? [];
+  return (
+    <Callout tone={added.length ? "success" : "info"}>
+      {added.length ? (
+        <>
+          ✓ Pulled the latest from FastF1 — added round{added.length > 1 ? "s" : ""}{" "}
+          <strong>{added.join(", ")}</strong>. Standings are current as of {when}.
+        </>
+      ) : (
+        <>Already up to date — no new race since the saved data. Checked {when}.</>
+      )}
+    </Callout>
   );
 }
 

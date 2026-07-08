@@ -205,8 +205,12 @@ export interface StandingsResp {
   races_done: number;
   total_races: number;
   ongoing: boolean;
+  includes_sprints?: boolean;
   drivers: DriverStanding[];
   constructors: ConstructorStanding[];
+  refreshed?: boolean;
+  added_rounds?: number[];
+  as_of?: string;
 }
 
 export interface RaceResultRow {

@@ -352,6 +352,19 @@ def standings(season: int | None = None) -> dict:
     return payload
 
 
+@app.get("/standings/refresh")
+def standings_refresh(season: int | None = None) -> dict:
+    """Live standings: the committed data topped up with any race that has become
+    official since (pulled from FastF1). Slow on the first new race; falls back to
+    the committed standings when nothing new is available or the network is down."""
+    from f1se.standalone.standings import refresh_standings
+
+    payload = refresh_standings(season)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="results dataset not available")
+    return payload
+
+
 @app.get("/race_card/{season}/{track}")
 def race_card(season: int, track: str) -> dict:
     """One race's finishing order + the podium model's pre-race prediction (for the

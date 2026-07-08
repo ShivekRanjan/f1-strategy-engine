@@ -88,6 +88,40 @@ def test_sprint_points_count_toward_standings(tmp_path):
     assert {d["driver"]: d["points"] for d in p2["drivers"]} == {"AAA": 50.0, "BBB": 36.0}
 
 
+def test_refresh_merges_a_new_round(tmp_path, monkeypatch):
+    """refresh_standings tops up the committed data with a live-pulled round."""
+    import pandas as pd
+
+    from f1se.standalone import standings as S
+
+    base = pd.DataFrame({
+        "year": 2031, "round": [1, 1], "event_name": "R1",
+        "driver": ["AAA", "BBB"], "team": ["T1", "T2"], "grid": 1.0,
+        "position": [1, 2], "points": [25.0, 18.0], "status": "Finished",
+    })
+    base.to_parquet(tmp_path / "results.parquet")
+    monkeypatch.setattr(S, "_resolve_results", lambda _dd=None: tmp_path / "results.parquet")
+
+    # Simulate FastF1 returning a freshly-run round 2 where BBB wins.
+    def fake_fetch(season, have):
+        race = pd.DataFrame({
+            "year": 2031, "round": 2, "event_name": "R2",
+            "driver": ["BBB", "AAA"], "team": ["T2", "T1"], "grid": [1.0, 2.0],
+            "position": [1, 2], "points": [25.0, 18.0], "status": "Finished",
+        })
+        empty_s = pd.DataFrame(columns=["year", "round", "event_name", "driver", "team",
+                                        "position", "points"])
+        return race, empty_s, [2]
+
+    monkeypatch.setattr(S, "_fetch_new_rounds", fake_fetch)
+
+    p = S.refresh_standings(2031, n_sims=200)
+    assert p["refreshed"] is True and p["added_rounds"] == [2]
+    assert p["races_done"] == 2
+    by = {d["driver"]: d["points"] for d in p["drivers"]}
+    assert by["AAA"] == 43.0 and by["BBB"] == 43.0   # both raced R1+R2
+
+
 def test_historical_season_has_no_projection():
     p = _payload()
     seasons = p["seasons"]
