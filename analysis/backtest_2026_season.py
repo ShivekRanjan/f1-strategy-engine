@@ -79,11 +79,18 @@ def main() -> None:
             continue
 
         # Leave-one-race-out degradation model, then recommend for this track
-        # at its actual track temperature (thermal prior).
+        # at its actual track temperature (thermal prior). The censoring pieces
+        # (avoidance slope/base adjustments + stint caps) are recomputed from
+        # the LOO lap set too, so the held-out race's own avoidance signal
+        # can't leak into its prediction.
+        from f1se.models.censoring import AvoidancePrior, apply_avoidance_adjustments
+        dry_loo = dry[~((dry.year == 2026) & (dry["round"] == rnd))]
         loo = fit_era_shrunk_degradation(
-            dry[~((dry.year == 2026) & (dry["round"] == rnd))],
-            target_min_year=2026, recency_halflife=4.0)
-        eng = replace(base, deg_model_2026=loo)
+            dry_loo, target_min_year=2026, recency_halflife=4.0)
+        era_loo = dry_loo[dry_loo["year"] >= 2026]
+        loo = apply_avoidance_adjustments(loo, era_loo, prior_model=base.deg_model)
+        eng = replace(base, deg_model_2026=loo,
+                      stint_caps=AvoidancePrior().track_caps(era_loo))
         temp = track_temp(2026, int(rnd))
         rec = eng.recommend(track, season=2026, n_runs=3000, track_temp=temp)["best"]
 

@@ -22,6 +22,7 @@ import pandas as pd
 
 from f1se.config import PROJECT_ROOT
 from f1se.eda import compound_stint_limits, estimate_pit_loss
+from f1se.models.censoring import AvoidancePrior
 from f1se.models.cliff import CliffPrior
 from f1se.models.degradation import DegradationModel, fit_linear_baseline
 from f1se.models.overtaking import OvertakingPrior
@@ -54,6 +55,12 @@ class StrategyEngine:
     overtaking: OvertakingPrior = field(default_factory=OvertakingPrior)
     # Thermal prior — track temperature shifts tyre degradation.
     thermal: ThermalPrior = field(default_factory=ThermalPrior)
+    # Censoring guardrail — per-(track, compound) stint caps where the current
+    # era's field only ever ran a compound in short stints (avoidance is data;
+    # the fitted slope there is unsupported, so don't let the optimiser plan
+    # stint lengths no real car has attempted). Applied to current-era sims only.
+    stint_caps: dict = field(default_factory=dict)
+    stint_caps_min_year: int = 2026
 
     # ---- construction --------------------------------------------------------
     @staticmethod
@@ -135,6 +142,18 @@ class StrategyEngine:
         if results_fp.exists():
             overtaking = OvertakingPrior.from_results(pd.read_parquet(results_fp))
 
+        # Censoring guardrail: where the current era's field ran a compound only
+        # in short stints, cap plannable stint length AND un-shrink that group's
+        # degradation slope (avoidance corroborates the raw estimate over the
+        # old-regs prior). See models/censoring.py for the full argument.
+        stint_caps: dict = {}
+        if has_2026 and deg_model_2026 is not None:
+            from f1se.models.censoring import apply_avoidance_adjustments
+            era_laps = dry[dry["year"] >= 2026]
+            stint_caps = AvoidancePrior().track_caps(era_laps)
+            deg_model_2026 = apply_avoidance_adjustments(
+                deg_model_2026, era_laps, prior_model=deg_model)
+
         return cls(
             deg_model=deg_model,
             deg_model_2026=deg_model_2026,
@@ -148,6 +167,7 @@ class StrategyEngine:
             laps=dry,
             forecaster=forecaster,
             overtaking=overtaking,
+            stint_caps=stint_caps,
         )
 
     # ---- per-track parameters ------------------------------------------------
@@ -176,6 +196,18 @@ class StrategyEngine:
 
     def _pit_loss(self, track: str) -> float:
         return self.pit_loss_by_track.get(track, self.global_pit_loss)
+
+    def _stint_limits_for(self, track: str, season: int | None) -> dict[str, int]:
+        """Per-compound stint limits for a sim: global limits, tightened by the
+        censoring caps where the current era's field avoided a compound at this
+        track. Caps derive from current-era running, so they apply only to
+        current-era sims (a 2025 replay must not inherit 2026's avoidance)."""
+        limits = dict(self.stint_limits)
+        if season is not None and season >= self.stint_caps_min_year:
+            for (t, comp), cap in self.stint_caps.items():
+                if t == track:
+                    limits[comp] = min(limits.get(comp, cap), cap)
+        return limits
 
     def race_info(self, track: str) -> dict:
         sc = self._sc_model(track)
@@ -234,7 +266,7 @@ class StrategyEngine:
             total_laps, pace_fn,
             sc_model=self._sc_model(track, sc_scale), objective=objective,
             n_runs=n_runs, top_k=top_k, seed=seed,
-            max_stops=max_stops, max_stint=self.stint_limits,
+            max_stops=max_stops, max_stint=self._stint_limits_for(track, season),
             pit_loss_s=pit_loss, pit_loss_sc_s=round(pit_loss * 0.5, 1),
             stop_penalty_s=self.overtaking.penalty_per_stop(track) if use_overtaking else 0.0,
         )
@@ -272,7 +304,8 @@ class StrategyEngine:
         state = RaceState(total_laps, current_lap, current_compound, tyre_age, used)
         rec = recommend_remaining(
             state, pace_fn, sc_model=self._sc_model(track), objective=objective,
-            n_runs=n_runs, top_k=top_k, seed=seed, max_stint=self.stint_limits,
+            n_runs=n_runs, top_k=top_k, seed=seed,
+            max_stint=self._stint_limits_for(track, season),
             pit_loss_s=pit_loss, pit_loss_sc_s=round(pit_loss * 0.5, 1),
         )
         return {

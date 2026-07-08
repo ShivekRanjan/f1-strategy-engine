@@ -293,6 +293,64 @@ papered over: an all-NaN 2021 results ingest (dropped — the window is
 2023–2026 and now says so), and profile "career" totals that were really
 window totals (relabelled **"2023–26 totals · not all-time career"**).
 
+## 11. Compound censoring: when the absence of data is the data (British GP 2026)
+
+A user-caught failure, and the best kind: at Silverstone the engine recommended
+**soft-heavy plans (M→S→S / S→S→M) under every objective and temperature — and
+the field's near-universal strategy wasn't even in the top-10 shortlist**.
+
+**Diagnosis.** The fitted model claimed all three compounds degrade almost
+identically at Silverstone (~0.053–0.059 s/lap). But only **13 soft laps exist
+there in all of 2026** (longest stint 13, most just 1–3 laps): the field avoids
+the compound, so the "fit" is really the era-shrinkage falling back to the
+2023–25 prior — old cars that *didn't* chew softs there. The one measurable 2026
+soft stint says **0.16 s/lap, ~3× the fitted value**. Worse, the few laps that
+do exist are end-of-race dashes on an evolved track, so the fitted soft *base
+pace* showed +1.35 s/lap advantage over mediums — where the old era, with real
+soft running, measured softs 0.38 s **slower**. Every fitted quantity for the
+avoided compound was fiction, each wrong in the direction that flatters it.
+This is §3's censoring problem one level up: there, teams pit before the cliff
+so it can't be fitted; here, teams avoid a whole compound so *nothing* about it
+can be fitted — and the avoidance itself is the missing evidence. (It also
+can't be patched globally: pooled 2026 soft degradation looks *gentler* than
+hard's for the same reason — softs only ever appear in short fresh dashes.)
+
+**The fix — an [`AvoidancePrior`](../src/f1se/models/censoring.py), three
+labelled parts:**
+
+1. **Stint caps**: where the era's field ran a compound only in short stints
+   (≥2 stints, all under 15 laps), the optimiser may not plan that compound
+   longer than the longest demonstrated stint (+2). No number is invented —
+   plans are constrained to the support of the data.
+2. **Slope un-shrinkage**: for those avoided groups the era blend toward the
+   old-regs prior is affirmatively wrong (the avoidance corroborates the noisy
+   direct estimate), so the raw era slope is used when it's *worse*. Never
+   lowers a slope.
+3. **Base re-anchoring**: the avoided compound's base pace is rebuilt as the
+   era's best-supported compound at that track plus the **old era's measured
+   gap** between the two — compound offsets are far more stable across a reg
+   change than absolute levels.
+
+Deliberately surgical: across all of 2026 it triggers at exactly **two**
+(track, compound) pairs — Silverstone softs and China softs. Austria's softs,
+whose low degradation was *supported* by 130 real laps (§9), are untouched.
+
+**Result.** Silverstone recommendations flip from fantasy-soft to **M→H /
+H→M** under every objective — the field's actual core compounds. The
+leave-one-race-out season backtest (now 9 races, censoring recomputed per fold
+so the held-out race's own avoidance can't leak) holds: **7/9 vs winner, 8/9 vs
+field-dominant**, degradation MAE 0.069 s/lap.
+
+**The twist that reframed the "miss".** The model still preferred a 1-stop
+M→H while the classified results show most drivers making a late stop for
+softs. The track status log explains it: a **safety car from lap 47 to the
+flag** (and a VSC around lap 38). The field's soft dash was an opportunistic
+near-free stop behind the SC — not a plannable strategy, and exactly the
+scenario the simulator prices as a *random* hazard rather than a plan. The
+winner's green-flag strategy shape matches the engine's call. Honest boundary,
+same as ever: the engine optimises the plan you can commit to before the
+lights; it cannot — and should not — pre-book a safety car.
+
 ---
 
 ### The pattern
