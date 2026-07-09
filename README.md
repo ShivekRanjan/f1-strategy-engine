@@ -16,7 +16,19 @@ predictions, standings, race analysis, the calendar, and the news.
 *(The API runs on a free tier that sleeps when idle — the first load can take
 ~30–60 s to wake it; after that it's fast.)*
 
-<!-- TODO: add a screenshot/GIF of the React UI to assets/ (Race Hub or Live Race). -->
+[![The F1 OS home — next race countdown, the model's podium call, live title odds, paddock news](assets/home.png)](https://f1-strategy-engine.vercel.app/)
+
+**Why this isn't another F1 dashboard:**
+
+- **It predicts, and shows its work** — every podium prediction is displayed
+  *next to what actually happened*, scored hit@3, misses included. The Race Hub
+  is a forward test on display, race by race.
+- **Every model beat a baseline or was rejected** — validated on leakage-safe
+  splits (GroupKFold-by-race + forward-in-time), with the rejected models
+  documented as receipts, not deleted ([docs/METHODOLOGY.md](docs/METHODOLOGY.md)).
+- **Uncertainty is the product** — strategies come with distributions
+  (typical vs bad-luck race, win-probability vs the alternatives), title odds
+  bootstrap driver-strength uncertainty, and known limits are stated in the UI.
 
 A **React + Vite** app over a **FastAPI** service wrapping the engine — nine
 sections in a grouped sidebar:
@@ -53,6 +65,11 @@ documented rather than deleted; one did, and it's here too:
 
 Full receipts — figures, numbers, and how to reproduce each one — in
 **[docs/METHODOLOGY.md](docs/METHODOLOGY.md)**.
+
+The discipline as a product feature — the Race Hub shows every race's
+**pre-race prediction next to the actual result**, scored honestly:
+
+![Race Hub — the podium model's pre-race prediction vs the actual result, scored hit@3, with the engine's strategy call](assets/racehub.png)
 
 ## How it works
 
