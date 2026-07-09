@@ -1,4 +1,4 @@
-# 🏎️ F1 Strategy Engine
+# 🏎️ F1SE / F1 OS — the F1 Strategy Engine
 
 [![CI](https://github.com/ShivekRanjan/f1-strategy-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/ShivekRanjan/f1-strategy-engine/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue)](pyproject.toml)
@@ -17,6 +17,15 @@ predictions, standings, race analysis, the calendar, and the news.
 ~30–60 s to wake it; after that it's fast.)*
 
 [![The F1 OS home — next race countdown, the model's podium call, live title odds, paddock news](assets/home.png)](https://f1-strategy-engine.vercel.app/)
+
+**Results at a glance** — every number from a leakage-safe, forward-in-time test:
+
+| Model | Scored against reality |
+|---|---|
+| Strategy engine (stop count) | **8/9** races match the field's dominant strategy, **7/9** the winner's (leave-one-race-out, 2026) |
+| Podium model | ROC-AUC **0.93** forward-tested on 2026; British GP pre-race call **2/3** with the real grid |
+| Degradation model | **0.069 s/lap** MAE on races the model never saw |
+| LSTM next-lap forecast | **+8.5%** vs persistence (held-out 2025); **+18%** on a fully unseen race |
 
 **Why this isn't another F1 dashboard:**
 
