@@ -156,6 +156,7 @@ function NavItem({ label, active, onClick }: { label: string; active: boolean; o
   return (
     <button
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={`relative flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition ${
         active ? "bg-accent/10 text-accent" : "text-ink-dim hover:bg-surface-inset/60 hover:text-ink-soft"
       }`}

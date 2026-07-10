@@ -3,6 +3,7 @@ import { Badge, Card, CardSkeleton, ErrorNote, SectionTitle, Skeleton } from "..
 import { pct, teamColor, timeAgo } from "../lib/format";
 import { countdown, fmtSession, useNow } from "../lib/time";
 import { useAsync } from "../lib/useAsync";
+import { useLastVisit } from "../lib/useLastVisit";
 import type { CalendarResp, NewsResp, StandingsResp, UpcomingResp } from "../api/types";
 
 /** The OS home: what's next, what the model expects, where the title stands,
@@ -192,6 +193,7 @@ function Headlines() {
 }
 
 function HeadlinesBody({ data }: { data: NewsResp }) {
+  const lastVisit = useLastVisit();
   if (!data.items.length) return null;
   return (
     <Card className="p-4">
@@ -213,6 +215,9 @@ function HeadlinesBody({ data }: { data: NewsResp }) {
             <div className="flex items-center gap-2 font-mono text-[11px]">
               <span className="text-accent">{it.source}</span>
               <span className="text-ink-faint">{timeAgo(it.ts)}</span>
+              {!!lastVisit && !!it.ts && it.ts > lastVisit && (
+                <span className="h-1.5 w-1.5 rounded-full bg-soft" title="new since your last visit" />
+              )}
             </div>
             <div className="text-sm font-600 text-ink group-hover:text-accent">{it.title}</div>
           </a>

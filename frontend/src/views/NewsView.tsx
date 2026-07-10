@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { Callout, Card, ErrorNote, Spinner } from "../components/ui";
 import { timeAgo } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
+import { useLastVisit } from "../lib/useLastVisit";
 import type { NewsItem, NewsResp } from "../api/types";
 import { ViewIntro } from "./common";
 
@@ -24,6 +25,7 @@ export default function NewsView() {
 
 function Body({ data }: { data: NewsResp }) {
   const [source, setSource] = useState<string | null>(null);
+  const lastVisit = useLastVisit();
   const items = useMemo(
     () => (source ? data.items.filter((i) => i.source === source) : data.items),
     [data.items, source],
@@ -57,14 +59,14 @@ function Body({ data }: { data: NewsResp }) {
 
       <Card className="divide-y divide-line p-0">
         {items.map((it) => (
-          <NewsRow key={it.link} it={it} />
+          <NewsRow key={it.link} it={it} isNew={!!lastVisit && !!it.ts && it.ts > lastVisit} />
         ))}
       </Card>
     </>
   );
 }
 
-function NewsRow({ it }: { it: NewsItem }) {
+function NewsRow({ it, isNew = false }: { it: NewsItem; isNew?: boolean }) {
   return (
     <a
       href={it.link}
@@ -75,6 +77,13 @@ function NewsRow({ it }: { it: NewsItem }) {
       <div className="mb-1 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em]">
         <span className="rounded-full bg-accent/12 px-2 py-0.5 text-accent">{it.source}</span>
         <span className="text-ink-faint">{timeAgo(it.ts)}</span>
+        {isNew && (
+          /* "New since your last visit" — the interface remembers so you
+             don't have to re-scan for what you've already read. */
+          <span className="rounded-full bg-soft/15 px-1.5 py-0.5 text-[10.5px] font-600 normal-case tracking-normal text-soft">
+            new
+          </span>
+        )}
         <span className="ml-auto text-ink-faint opacity-0 transition group-hover:opacity-100">
           read ↗
         </span>

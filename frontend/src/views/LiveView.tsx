@@ -242,7 +242,7 @@ function PaceChart({
   return (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={series} margin={{ top: 8, right: 12, bottom: 4, left: -12 }}>
-        <CartesianGrid stroke="#2c2c36" vertical={false} />
+        <CartesianGrid stroke="#1a212b" vertical={false} />
         <XAxis dataKey="lap" stroke="#9a9aa6" fontSize={11} type="number" domain={["dataMin", "dataMax"]} />
         <YAxis stroke="#9a9aa6" fontSize={11} domain={["auto", "auto"]} tickFormatter={(v) => v.toFixed(0)} />
         <Tooltip

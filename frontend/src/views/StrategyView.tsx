@@ -48,6 +48,7 @@ function Dashboard({ tracks }: { tracks: TrackInfo[] }) {
   const [maxStops, setMaxStops] = useState(2);
   const [cliff, setCliff] = useState(true);
   const [trackTemp, setTrackTemp] = useState(35);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const seasons = useAsync(() => api.seasons(track), [track]);
   useEffect(() => {
@@ -94,6 +95,8 @@ function Dashboard({ tracks }: { tracks: TrackInfo[] }) {
         setCliff={setCliff}
         trackTemp={trackTemp}
         setTrackTemp={setTrackTemp}
+        showAdvanced={showAdvanced}
+        setShowAdvanced={setShowAdvanced}
         info={rec.data}
       />
       <div className="space-y-5">
@@ -139,6 +142,8 @@ function Rail(props: {
   setCliff: (b: boolean) => void;
   trackTemp: number;
   setTrackTemp: (n: number) => void;
+  showAdvanced: boolean;
+  setShowAdvanced: (b: boolean) => void;
   info: RecommendResp | null | undefined;
 }) {
   const p = props;
@@ -200,6 +205,12 @@ function Rail(props: {
       <div>
         <SectionTitle>Objective</SectionTitle>
         <Segmented value={p.objective} options={OBJECTIVES} onChange={p.setObjective} />
+        {/* Immediate feedback: say what the choice *does*, in outcome terms. */}
+        <p className="mt-1.5 text-[11px] leading-snug text-ink-muted">
+          {p.objective === "mean" && "Optimises the average race — fastest overall, exposed to bad luck."}
+          {p.objective === "median" && "Optimises the typical race — ignores freak outcomes either way."}
+          {p.objective === "p85" && "Protects the bad-luck tail — trades a little pace for safety."}
+        </p>
       </div>
 
       <Field label={`Max stops · ${p.maxStops}`}>
@@ -214,30 +225,48 @@ function Rail(props: {
                   : `${p.trackTemp}°C`} />
       </Field>
 
-      <button
-        onClick={() => p.setCliff(!p.cliff)}
-        className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition ${
-          p.cliff ? "border-accent/55 bg-surface-inset" : "border-line-ctl bg-surface-inset"
-        }`}
-      >
-        <span>
-          <span className="block text-[12.5px] font-600 text-ink-soft">Cliff prior</span>
-          <span className="font-mono text-[11px] text-ink-dim">domain assumption</span>
-        </span>
-        <span className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-600 ${
-          p.cliff ? "bg-accent/20 text-accent" : "bg-surface-inset2 text-ink-dim"
-        }`}>
-          {p.cliff ? "ON" : "OFF"}
-        </span>
-      </button>
+      {/* Progressive disclosure (Hick's law): expert knobs and model internals
+          stay one click away, so the first-time reader faces four decisions,
+          not seven. State is preserved either way. */}
+      <div className="border-t border-line pt-2">
+        <button
+          onClick={() => p.setShowAdvanced(!p.showAdvanced)}
+          className="flex w-full items-center justify-between py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-dim transition hover:text-ink-soft"
+        >
+          <span>Advanced · model assumptions</span>
+          <span>{p.showAdvanced ? "−" : "+"}</span>
+        </button>
 
-      {p.info && (
-        <div className="space-y-1 border-t border-line pt-3 font-mono text-[11px] text-ink-faint">
-          <div>pit loss · {p.info.pit_loss_s.toFixed(1)}s (measured)</div>
-          <div>P(safety car) · {pSC != null ? Math.round(pSC * 100) : "–"}%</div>
-          <div>searched {p.info.n_evaluated} strategies</div>
-        </div>
-      )}
+        {p.showAdvanced && (
+          <div className="mt-2 space-y-3">
+            <button
+              onClick={() => p.setCliff(!p.cliff)}
+              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition ${
+                p.cliff ? "border-accent/55 bg-surface-inset" : "border-line-ctl bg-surface-inset"
+              }`}
+            >
+              <span>
+                <span className="block text-[12.5px] font-600 text-ink-soft">Cliff prior</span>
+                <span className="font-mono text-[11px] text-ink-dim">domain assumption</span>
+              </span>
+              <span className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-600 ${
+                p.cliff ? "bg-accent/20 text-accent" : "bg-surface-inset2 text-ink-dim"
+              }`}>
+                {p.cliff ? "ON" : "OFF"}
+              </span>
+            </button>
+
+            {p.info && (
+              <div className="space-y-1 font-mono text-[11px] text-ink-faint">
+                <div>pit loss · {p.info.pit_loss_s.toFixed(1)}s (measured)</div>
+                <div>P(safety car) · {pSC != null ? Math.round(pSC * 100) : "–"}%</div>
+                <div>searched {p.info.n_evaluated} strategies</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
     </Card>
   );
 }
