@@ -72,12 +72,20 @@ export interface UndercutOption {
   final_gap_s: number;
   p_ahead: number;
 }
+export interface UndercutTrajectory {
+  laps: number[];
+  undercut: number[];
+  cover: number[];
+  your_pit_lap: number;
+  rival_pit_lap: number;
+}
 export interface UndercutResp {
   verdict: string;
   undercut_works: boolean;
   undercut_gain_s: number;
   undercut: UndercutOption;
   cover: UndercutOption;
+  trajectory?: UndercutTrajectory;
 }
 
 export interface LapRow {

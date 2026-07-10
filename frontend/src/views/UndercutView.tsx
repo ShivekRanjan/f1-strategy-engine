@@ -1,9 +1,21 @@
 import { useState } from "react";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { api } from "../api/client";
 import { Combobox, Field, Select, Slider } from "../components/controls";
 import { Callout, Card, ErrorNote, Metric, SectionTitle, Spinner } from "../components/ui";
 import { gapText, trackSearchText } from "../lib/format";
 import { useAsync, useDebounced } from "../lib/useAsync";
+import type { UndercutTrajectory } from "../api/types";
 import { TracksGate, ViewIntro, pickDefaultTrack } from "./common";
 
 const COMPS = ["SOFT", "MEDIUM", "HARD"] as const;
@@ -120,6 +132,7 @@ function Panel({ track, total }: { track: string; total: number }) {
           <Callout tone={res.data.undercut_works ? "success" : "info"}>
             <span className="text-base font-700">{res.data.verdict}</span>
           </Callout>
+          {res.data.trajectory && <CrossoverChart t={res.data.trajectory} />}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Metric
               label="Pit now (undercut)"
@@ -142,6 +155,64 @@ function Panel({ track, total }: { track: string; total: number }) {
         </>
       )}
     </>
+  );
+}
+
+/** The undercut, made spatial: your gap to the rival lap by lap, one line per
+ *  option. Up = you ahead (people map up to winning), the zero line = the rival,
+ *  and the moment a line crosses it IS the crossover — no mental simulation
+ *  needed. Solid vs dashed is a second encoding on top of colour. */
+function CrossoverChart({ t }: { t: UndercutTrajectory }) {
+  const data = t.laps.map((lap, i) => ({
+    lap,
+    // Negate so "ahead of the rival" plots upward; the axis labels say so.
+    undercut: -t.undercut[i],
+    cover: -t.cover[i],
+  }));
+  return (
+    <Card className="p-4">
+      <SectionTitle>The crossover, lap by lap</SectionTitle>
+      <div className="relative">
+        <span className="pointer-events-none absolute left-12 top-1 font-mono text-[11px] uppercase tracking-[0.1em] text-accent/80">
+          ▲ you ahead
+        </span>
+        <span className="pointer-events-none absolute bottom-8 left-12 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-faint">
+          ▼ rival ahead
+        </span>
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={data} margin={{ top: 14, right: 42, bottom: 4, left: -8 }}>
+            <CartesianGrid stroke="#1a212b" vertical={false} />
+            <XAxis dataKey="lap" stroke="#9a9aa6" fontSize={11} type="number"
+                   domain={["dataMin", "dataMax"]} tickCount={8} />
+            <YAxis stroke="#9a9aa6" fontSize={11} width={44}
+                   tickFormatter={(v: number) => `${v > 0 ? "+" : ""}${v.toFixed(0)}s`} />
+            <Tooltip
+              labelFormatter={(v) => `lap ${v}`}
+              formatter={(v: number, name: string) => [
+                `${Math.abs(v).toFixed(1)}s ${v >= 0 ? "ahead" : "behind"}`,
+                name,
+              ]}
+            />
+            <ReferenceLine y={0} stroke="#8994a4" strokeWidth={1.5}
+                           label={{ value: "rival", position: "right", fill: "#8994a4", fontSize: 11 }} />
+            {/* No marker for your own stop: it's always "now" (the chart's left
+                edge) and the teal line's pit-loss dive already shows it. */}
+            <ReferenceLine x={t.rival_pit_lap} stroke="#8994a4" strokeDasharray="2 3" strokeOpacity={0.6}
+                           label={{ value: "rival pits", position: "insideTopRight", fill: "#8994a4", fontSize: 10 }} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Line name="Pit now (undercut)" type="monotone" dataKey="undercut"
+                  stroke="#2dd4bf" strokeWidth={2} dot={false} isAnimationActive={false} />
+            <Line name="Cover (pit with rival)" type="monotone" dataKey="cover"
+                  stroke="#f6c700" strokeWidth={2} strokeDasharray="6 4" dot={false}
+                  isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="mt-1 text-xs text-ink-muted">
+        Mean paths from the same pace model the simulator uses. Free-air caveat: this is the
+        <em> clock</em> crossover — it doesn't model whether you can physically pass.
+      </p>
+    </Card>
   );
 }
 

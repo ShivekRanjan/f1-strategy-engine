@@ -123,7 +123,11 @@ export default function App() {
           </div>
         </div>
         <main className="mx-auto max-w-[1180px] px-5 py-6">
-          <Suspense fallback={<Spinner label="Loading…" />}>{active.el}</Suspense>
+          {/* Keyed by tab: a 150ms fade preserves visual continuity between
+              sections instead of an abrupt teleport. */}
+          <div key={tab} className="animate-fadein">
+            <Suspense fallback={<Spinner label="Loading…" />}>{active.el}</Suspense>
+          </div>
         </main>
       </div>
     </div>

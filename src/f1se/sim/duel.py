@@ -96,11 +96,29 @@ def undercut_decision(
     cover = _eval(rival_pit_lap)                     # pit when the rival does
     gain = cover["final_gap_s"] - undercut["final_gap_s"]   # +ve = undercut is faster
     works = undercut["final_gap_s"] < cover["final_gap_s"] and undercut["p_ahead"] > cover["p_ahead"]
+
+    # Deterministic lap-by-lap gap path for each option, so the UI can *show*
+    # the crossover instead of only describing it (people read a line crossing
+    # zero instantly; a textual "gains 1.4s" has to be mentally simulated).
+    def _path(your_pit: int) -> list[float]:
+        you = CarPlan(your_compound, your_age, your_pit, your_new_compound, your_pace_offset_s)
+        yd = car_lap_times(you, current_lap, horizon, pace_fn, pit_loss_s)
+        rd = car_lap_times(rival, current_lap, horizon, pace_fn, pit_loss_s)
+        return [round(g, 3) for g in (gap_s + np.cumsum(yd - rd))]
+
+    trajectory = {
+        "laps": list(range(current_lap + 1, horizon + 1)),
+        "undercut": _path(current_lap + 1),
+        "cover": _path(rival_pit_lap),
+        "your_pit_lap": current_lap + 1,
+        "rival_pit_lap": rival_pit_lap,
+    }
     return {
         "undercut": undercut,
         "cover": cover,
         "undercut_gain_s": gain,
         "undercut_works": works,
+        "trajectory": trajectory,
         "verdict": (
             f"Undercut now — it gains ~{gain:.1f}s on the rival and "
             f"ends ahead {undercut['p_ahead']*100:.0f}% of the time."

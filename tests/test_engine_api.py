@@ -101,6 +101,12 @@ def test_engine_undercut_returns_both_options():
     assert "verdict" in out and isinstance(out["undercut_works"], bool)
     for opt in ("undercut", "cover"):
         assert 0.0 <= out[opt]["p_ahead"] <= 1.0
+    # Lap-by-lap gap paths for the crossover chart: aligned series that start
+    # from (roughly) the entered 2.0s gap on the first lap after "now".
+    t = out["trajectory"]
+    assert len(t["laps"]) == len(t["undercut"]) == len(t["cover"]) > 0
+    assert t["laps"][0] == 16 and t["your_pit_lap"] == 16 and t["rival_pit_lap"] == 25
+    assert abs(t["cover"][0] - 2.0) < 1.0
 
 
 def test_engine_unknown_track_raises():

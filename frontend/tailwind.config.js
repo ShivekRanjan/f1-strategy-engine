@@ -60,8 +60,15 @@ export default {
       borderRadius: { xl2: "0.875rem" },
       keyframes: {
         f1pulse: { "0%,100%": { opacity: "1" }, "50%": { opacity: "0.35" } },
+        fadein: {
+          "0%": { opacity: "0", transform: "translateY(4px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
-      animation: { f1pulse: "f1pulse 1.8s ease-in-out infinite" },
+      animation: {
+        f1pulse: "f1pulse 1.8s ease-in-out infinite",
+        fadein: "fadein 150ms ease-out",
+      },
     },
   },
   plugins: [],

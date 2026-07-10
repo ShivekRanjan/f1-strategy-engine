@@ -458,7 +458,7 @@ function ShortlistCard({ rec }: { rec: RecommendResp }) {
               <th className="px-3 py-2 text-left">#</th>
               <th className="px-3 py-2 text-left">Strategy</th>
               <th className="px-3 py-2 text-center">Stops</th>
-              <th className="px-3 py-2 text-right">Mean</th>
+              <th className="px-3 py-2 text-right">vs pick</th>
               <th className="px-3 py-2 text-right">p50</th>
               <th className="px-3 py-2 text-right">p90</th>
               <th className="px-3 py-2 text-right">P(beat #1)</th>
@@ -478,7 +478,15 @@ function ShortlistCard({ rec }: { rec: RecommendResp }) {
                   {r.pit_laps.length > 0 && <span className="text-ink-dim"> @{r.pit_laps.join(",")}</span>}
                 </td>
                 <td className="px-3 py-2.5 text-center text-ink-muted">{r.pit_laps.length}</td>
-                <td className="px-3 py-2.5 text-right text-ink">{clock(r.mean_s)}</td>
+                <td className="px-3 py-2.5 text-right text-ink">
+                  {r.rank === 1 ? (
+                    <span className="text-accent">{clock(r.mean_s)}</span>
+                  ) : (
+                    /* Anchoring: a delta from the pick is instantly comparable;
+                       a second absolute H:MM:SS has to be mentally subtracted. */
+                    `+${(r.mean_s - rec.shortlist[0].mean_s).toFixed(1)}s`
+                  )}
+                </td>
                 <td className="px-3 py-2.5 text-right text-ink-muted">{clock(r.p50_s)}</td>
                 <td className="px-3 py-2.5 text-right text-ink-muted">{clock(r.p90_s)}</td>
                 <td className="px-3 py-2.5 text-right text-ink-muted">
