@@ -164,7 +164,7 @@ function NavItem({ label, active, onClick }: { label: string; active: boolean; o
 
 function Footer() {
   return (
-    <div className="border-t border-line px-4 py-3">
+    <div className="space-y-1.5 border-t border-line px-4 py-3">
       <a
         href={REPO}
         target="_blank"
@@ -177,6 +177,9 @@ function Footer() {
           live
         </span>
       </a>
+      <div className="font-mono text-[11px] text-ink-faint">
+        v{__APP_VERSION__} · {__BUILD_SHA__}
+      </div>
     </div>
   );
 }

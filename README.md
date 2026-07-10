@@ -16,7 +16,7 @@ predictions, standings, race analysis, the calendar, and the news.
 *(The API runs on a free tier that sleeps when idle — the first load can take
 ~30–60 s to wake it; after that it's fast.)*
 
-[![The F1 OS home — next race countdown, the model's podium call, live title odds, paddock news](assets/home.png)](https://f1-strategy-engine.vercel.app/)
+[![The F1 OS — home with the next-race countdown and podium call, calendar, Race Hub prediction-vs-actual, live standings](assets/demo.gif)](https://f1-strategy-engine.vercel.app/)
 
 **Results at a glance** — every number from a leakage-safe, forward-in-time test:
 
@@ -128,7 +128,10 @@ python -m f1se.data.ingest racelaps      # pit-loss calibration
 python -m f1se.standalone.results        # race results (outcome predictors)
 ```
 
-Example API call:
+Interactive API docs (FastAPI/Swagger) are served at **`/docs`** — locally at
+`localhost:8000/docs`, or live at
+[the deployed API's `/docs`](https://f1-strategy-engine.onrender.com/docs).
+Example call:
 
 ```bash
 curl -X POST localhost:8000/recommend -H 'Content-Type: application/json' \
@@ -164,6 +167,27 @@ the network at runtime are **News** (RSS, headlines + link-out only) and the
 **Calendar** (FastF1 event schedule) — both cached, both degrade gracefully
 offline; everything else serves from the committed datasets.
 
+## Known limits (stated on purpose)
+
+- **Free-air simulator.** The optimiser prices pace, degradation, and safety-car
+  risk — not on-track overtaking cost. A small labelled track-position prior
+  nudges for it; it isn't a wheel-to-wheel model. It optimises the plan you can
+  *commit to before the lights*, and it can't pre-book a safety car.
+- **Not a live-timing feed.** Real-time streams only exist during a session;
+  between sessions the Calendar counts down and the Live Race view replays. The
+  UI says so rather than faking it.
+- **Data window is 2023–2026.** Driver/constructor totals are for that window,
+  labelled as such — not all-time career figures.
+- **Free-tier hosting.** The API sleeps when idle (first load ~30–60 s to wake);
+  heavy Monte-Carlo searches are slower than on paid compute.
+
+## Roadmap
+
+- LSTM retrain cadence automated per race (currently a frozen export).
+- Per-circuit default track temperatures pre-filling the Strategy slider.
+- Wet-race strategy (the engine is dry-only today; intermediates/wets are out
+  of scope for the degradation model).
+
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) · Changelog: [CHANGELOG.md](CHANGELOG.md)
