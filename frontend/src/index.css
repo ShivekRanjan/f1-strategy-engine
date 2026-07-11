@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* --- V2 theme accent -------------------------------------------------------
+   The one runtime theme value (Settings switches it). RGB triplets so
+   Tailwind's alpha modifiers (accent/50 etc.) keep working. Gold is the
+   default identity; cyan/violet are the alternates from the design handoff. */
+:root,
+[data-accent="gold"] {
+  --accent: 212 175 55; /* #d4af37 */
+}
+[data-accent="cyan"] {
+  --accent: 34 224 255; /* #22e0ff */
+}
+[data-accent="violet"] {
+  --accent: 168 85 247; /* #a855f7 */
+}
+
+/* --- Ambient-motion gate ----------------------------------------------------
+   The decorative loops (grid drift, sweep, breathe) obey BOTH the user's OS
+   preference and the in-app Settings toggle (html[data-motion="off"]).
+   Entrance animations and functional feedback stay. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-gridmove,
+  .animate-sweep,
+  .animate-breathe {
+    animation: none !important;
+  }
+}
+[data-motion="off"] .animate-gridmove,
+[data-motion="off"] .animate-sweep,
+[data-motion="off"] .animate-breathe {
+  animation: none !important;
+}
+
 @layer base {
   html {
     @apply bg-surface-page text-ink;
