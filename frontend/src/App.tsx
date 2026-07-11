@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import { Spinner } from "./components/ui";
+import { useSettings } from "./lib/useSettings";
 
 // Views are lazy-loaded: each section (and the chart library the heavy ones
 // pull in) ships as its own chunk instead of one entry bundle.
@@ -14,6 +15,7 @@ const NewsView = lazy(() => import("./views/NewsView"));
 const CalendarView = lazy(() => import("./views/CalendarView"));
 const LiveView = lazy(() => import("./views/LiveView"));
 const AboutView = lazy(() => import("./views/AboutView"));
+const SettingsView = lazy(() => import("./views/SettingsView"));
 
 const REPO = "https://github.com/ShivekRanjan/f1-strategy-engine";
 
@@ -29,6 +31,8 @@ const TABS = [
   { id: "outcome", label: "Outcome", group: "Championship", el: <OutcomeView /> },
   { id: "news", label: "News", group: "Paddock", el: <NewsView /> },
   { id: "about", label: "About", group: "Paddock", el: <AboutView /> },
+  // Pinned to the sidebar's bottom, outside the scrollable groups (handoff).
+  { id: "settings", label: "Settings", group: "_pinned", el: <SettingsView /> },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -56,32 +60,68 @@ function useHashTab(): [TabId, (id: TabId) => void] {
 
 export default function App() {
   const [tab, setTab] = useHashTab();
+  const [collapsed, setCollapsed] = useState(false);
+  useSettings(); // ensures <html data-accent/motion> stays applied + reactive
   const active = TABS.find((t) => t.id === tab)!;
 
   return (
     <div className="lg:flex">
-      {/* ---- Sidebar (desktop) ------------------------------------------- */}
-      <aside className="sticky top-0 z-20 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface-rail lg:flex">
-        <Brand />
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+      {/* ---- Sidebar (desktop) — collapsible 252px/76px rail --------------- */}
+      <aside
+        className="sticky top-0 z-20 hidden h-screen shrink-0 flex-col border-r border-line bg-surface-rail transition-[width] duration-200 ease-out lg:flex"
+        style={{ width: collapsed ? 76 : 252 }}
+      >
+        <div className={`flex items-center gap-3 border-b border-line px-4 py-4 ${collapsed ? "justify-center px-2" : ""}`}>
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="flex h-8 w-8 shrink-0 flex-col items-center justify-center gap-[3px] rounded-md border border-line-ctl transition hover:border-line-hover"
+          >
+            <span className="h-[2px] w-4 rounded bg-ink-dim" />
+            <span className="h-[2px] w-4 rounded bg-ink-dim" />
+            <span className="h-[2px] w-4 rounded bg-ink-dim" />
+          </button>
+          {!collapsed && <Brand />}
+        </div>
+
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
           {GROUP_ORDER.map((g) => (
             <div key={g} className="mb-5">
-              <div className="mb-1.5 px-2 font-mono text-[11px] uppercase tracking-[0.16em] text-ink-faint">
-                {g}
-              </div>
+              {!collapsed && (
+                <div className="mb-1.5 px-2 font-mono text-[11px] uppercase tracking-[0.16em] text-ink-faint">
+                  {g}
+                </div>
+              )}
               {TABS.filter((t) => t.group === g).map((t) => (
-                <NavItem key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} />
+                <NavItem
+                  key={t.id}
+                  label={t.label}
+                  collapsed={collapsed}
+                  active={tab === t.id}
+                  onClick={() => setTab(t.id)}
+                />
               ))}
             </div>
           ))}
         </nav>
-        <Footer />
+
+        {/* Settings pinned at the bottom, above the footer divider */}
+        <div className="border-t border-line px-3 py-2">
+          <NavItem
+            label="Settings"
+            icon="⚙"
+            collapsed={collapsed}
+            active={tab === "settings"}
+            onClick={() => setTab("settings")}
+          />
+        </div>
+        {!collapsed && <Footer />}
       </aside>
 
       {/* ---- Mobile top bar ---------------------------------------------- */}
       <header className="sticky top-0 z-20 border-b border-line bg-surface-rail/95 backdrop-blur lg:hidden">
         <div className="flex h-[56px] items-center justify-between px-4">
-          <Brand compact />
+          <Brand />
           <a href={REPO} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-ink-dim">
             repo ↗
           </a>
@@ -91,18 +131,12 @@ export default function App() {
             <span key={g} className="flex items-center gap-1">
               {gi > 0 && <span className="mx-1 h-4 w-px shrink-0 bg-line-hover/60" />}
               {TABS.filter((t) => t.group === g).map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={`whitespace-nowrap rounded-md px-3 py-1.5 font-mono text-[12px] transition ${
-                    tab === t.id ? "bg-accent/10 text-accent" : "text-ink-dim hover:text-ink-muted"
-                  }`}
-                >
-                  {t.label}
-                </button>
+                <MobileTab key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} />
               ))}
             </span>
           ))}
+          <span className="mx-1 h-4 w-px shrink-0 bg-line-hover/60" />
+          <MobileTab label="Settings" active={tab === "settings"} onClick={() => setTab("settings")} />
         </div>
       </header>
 
@@ -110,7 +144,7 @@ export default function App() {
       <div className="min-w-0 flex-1">
         <div className="hidden items-center justify-between border-b border-line px-6 py-3 lg:flex">
           <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-muted">
-            <span className="text-ink-faint">{active.group}</span>
+            <span className="text-ink-faint">{active.group === "_pinned" ? "System" : active.group}</span>
             <span className="px-2 text-ink-faint">/</span>
             <span className="text-ink">{active.label}</span>
           </div>
@@ -123,8 +157,7 @@ export default function App() {
           </div>
         </div>
         <main className="mx-auto max-w-[1180px] px-5 py-6">
-          {/* Keyed by tab: a 150ms fade preserves visual continuity between
-              sections instead of an abrupt teleport. */}
+          {/* Keyed by tab: a brief rise preserves continuity between sections. */}
           <div key={tab} className="animate-fadein">
             <Suspense fallback={<Spinner label="Loading…" />}>{active.el}</Suspense>
           </div>
@@ -134,34 +167,87 @@ export default function App() {
   );
 }
 
-function Brand({ compact = false }: { compact?: boolean }) {
+function Brand() {
   return (
-    <div className={`flex items-center gap-3 ${compact ? "" : "border-b border-line px-4 py-4"}`}>
+    <div className="flex min-w-0 items-center gap-3">
       <Logo />
-      <div className="leading-tight">
-        <div className="text-[15px] font-700 text-ink">
+      <div className="min-w-0 leading-tight">
+        <div className="truncate text-[15px] font-700 text-ink">
           F1<span className="text-accent">SE</span>
           <span className="px-1 font-500 text-ink-faint">/</span>
           <span className="text-ink-soft">F1 OS</span>
         </div>
-        <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-faint">
-          Strategy · standings · live
+        <div className="truncate font-mono text-[11px] uppercase tracking-[0.14em] text-ink-faint">
+          v2 · strategy · live
         </div>
       </div>
     </div>
   );
 }
 
-function NavItem({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+/** V2 logo: 32px dark badge with a folded-flag chevron in a gold→accent
+ *  gradient, breathing a soft glow (pure CSS — no image asset). */
+function Logo() {
+  return (
+    <div
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-accent animate-breathe"
+      style={{ background: "#151109", borderColor: "#3a3020" }}
+    >
+      <span
+        className="block h-4 w-4"
+        style={{
+          clipPath: "polygon(0 0, 100% 25%, 100% 100%, 0 75%)",
+          background: "linear-gradient(135deg, #f0d780, rgb(var(--accent)))",
+        }}
+      />
+    </div>
+  );
+}
+
+function NavItem({
+  label,
+  active,
+  collapsed,
+  icon,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  collapsed: boolean;
+  icon?: string;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
       aria-current={active ? "page" : undefined}
-      className={`relative flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] transition ${
-        active ? "bg-accent/10 text-accent" : "text-ink-dim hover:bg-surface-inset/60 hover:text-ink-soft"
+      title={collapsed ? label : undefined}
+      className={`relative flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] transition ${
+        active ? "bg-accent/15 text-accent" : "text-ink-dim hover:bg-surface-inset/70 hover:text-ink-soft"
+      } ${collapsed ? "justify-center px-0" : ""}`}
+    >
+      <span
+        className={`h-2 w-2 shrink-0 rounded-[3px] ${active ? "bg-accent" : "bg-line-hover"}`}
+        aria-hidden
+      />
+      {!collapsed && (
+        <span className="truncate">
+          {icon ? `${icon} ` : ""}
+          {label}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function MobileTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`whitespace-nowrap rounded-md px-3 py-1.5 font-mono text-[12px] transition ${
+        active ? "bg-accent/15 text-accent" : "text-ink-dim hover:text-ink-muted"
       }`}
     >
-      {active && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent" />}
       {label}
     </button>
   );
@@ -185,16 +271,6 @@ function Footer() {
       <div className="font-mono text-[11px] text-ink-faint">
         v{__APP_VERSION__} · {__BUILD_SHA__}
       </div>
-    </div>
-  );
-}
-
-function Logo() {
-  return (
-    <div className="flex items-center gap-[3px]">
-      <span className="h-6 w-[11px] rounded-sm bg-accent shadow-glow" />
-      <span className="h-6 w-1.5 rounded-sm bg-soft opacity-90" />
-      <span className="h-6 w-1.5 rounded-sm bg-medium opacity-90" />
     </div>
   );
 }
