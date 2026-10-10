@@ -23,7 +23,7 @@ predictions, standings, race analysis, the calendar, and the news, with a
 
 | Model | Scored against reality |
 |---|---|
-| Strategy engine (stop count) | **12/16** races match the field's dominant strategy, **10/16** the winner's (leave-one-race-out, 2026) — down from 10/11 at round 11; two of the three new misses are the season's hottest races ([§16](docs/METHODOLOGY.md)) |
+| Strategy engine (stop count) | **13/16** races match the field's dominant strategy, **11/16** the winner's (leave-one-race-out, 2026) — after a circuit-identity fix and a temperature prior that failed out-of-sample were removed ([§16](docs/METHODOLOGY.md), [§17](docs/METHODOLOGY.md)) |
 | Podium model | ROC-AUC **0.935** forward-tested on 2026 — but the naive grid baseline now **edges it** by one podium slot in 48 (hit@3 1.88 vs 1.81), and the pre-registered Hungary call went **1/3**. All published, [§12](docs/METHODOLOGY.md), [§16](docs/METHODOLOGY.md) |
 | Degradation model | **0.054 s/lap** MAE on races the model never saw (leave-one-race-out, 16 races); the 2026-aware model now only **ties** the old-car prior (−0.2%, better in 10 of 16) — it was +1.0% at 11 races ([§7](docs/METHODOLOGY.md), [§16](docs/METHODOLOGY.md)) |
 | LSTM next-lap forecast | **+13.1%** vs persistence averaged over **16 fully unseen 2026 races — winning all 16** (+8.5% on the held-out 2025 split) |
@@ -47,7 +47,7 @@ sections in a grouped sidebar:
 | | Section | What it does |
 |---|---|---|
 | **Overview** | Ask | Plain-English questions against the same engine — *"fastest strategy for Monza"*, *"lap 30, I'm on hards 20 laps old, Norris on mediums 6 — do I box?"*. Every answer shows the intent and slots it understood, so a misheard circuit is visible rather than silent, and a missing detail is asked for rather than guessed |
-| **Strategy** | Strategy | Searches ~1,000+ pit strategies per race via Monte Carlo (stochastic safety cars, calibrated per circuit) and recommends the best plan — with the honest spread: *typical* vs *bad-luck* race, a track-temperature control (thermal prior), and whether the call is clear-cut or a coin-flip |
+| **Strategy** | Strategy | Searches ~1,000+ pit strategies per race via Monte Carlo (stochastic safety cars, calibrated per circuit) and recommends the best plan — with the honest spread: *typical* vs *bad-luck* race, and whether the call is clear-cut or a coin-flip |
 | | Undercut | The two-car question: with a rival *N* seconds ahead, pit now to undercut or hold and cover? Models the cumulative-time crossover and returns the verdict with the seconds gained |
 | **Race weekend** | Calendar | The full season schedule with a live countdown to the next session; sprint weekends badged |
 | | Race Hub | One race, the whole story: the podium model's **pre-race prediction vs the actual result** (a genuine forward test, scored hit@3), full finishing order, the engine's optimal strategy call, tyre-degradation curves, and a lap-pace trace |
@@ -74,7 +74,7 @@ documented rather than deleted; one did, and it's here too:
 | **An LSTM *did* earn its place** — for next-lap pace forecasting it beats persistence by ~8.5% (0.306 vs 0.335s MAE on held-out 2025) by damping per-lap noise and anticipating tyre warm-up. The one case where complexity won, on the same footing — and it's live in the app (exported torch-free to a 28 KB numpy artifact) | `analysis/phase2_5_sequence.py` |
 | **Validated on a race the models never saw** (Austrian GP 2026, in no training data) — LSTM nowcast **+18%** vs persistence (since re-measured over all 16 unseen races: mean **+13.1%**, 16/16 wins), podium model **2/3** vs the grid's 1/3; a strategy miss surfaced (and fixed) a real degradation gap, and the model even flagged the underused softs a driver called out post-race | `analysis/backtest_austria_2026.py` |
 | **A from-scratch transformer vs regex — and the answer was neither** — built a 460k-parameter intent+slot transformer (own tokeniser, attention, training loop) to beat a hand-written parser. Across 3 seeds the model wins **intent** 3/3 (0.645–0.677 vs 0.516) and the rules win **slots** 3/3 (precision 1.000 vs 0.974); the composition of the two beats both and is what ships. Got there after three wrong verdicts — including a variance estimate from two seeds that was off by 7× — and a training-data bug that gave one class **6 examples out of 60,000** | `analysis/nlu_benchmark.py`, METHODOLOGY §15 |
-| **A season-wide backtest exposed over-stopping — the root cause was weather, not track position** — the pooled degradation model assumed average track temp, over-predicting wear on cool days. A track-position prior (the first hypothesis) washed out 4/8; a **thermal prior** (temp-shifted degradation slope) lifted the leave-one-race-out stop-count match to **7/8** and is a live control in the UI | `analysis/backtest_2026_season.py`, METHODOLOGY §9 |
+| **A thermal prior that fit its own backtest and nothing else — rejected** — track temperature was meant to shift tyre wear, and on the eight 2026 races it was tuned on it lifted stop-count matching from 4/8 to 7/8. Tested on 54 races from 2023–25 that never shaped it, the effect is **zero** (−0.0000 s/lap per °C, 95% CI ±0.0013, vs the assumed +0.006): each circuit's model already absorbs the temperatures it usually runs at. Switched off; on 2026 that gained a race on both measures | `analysis/thermal_out_of_sample.py`, METHODOLOGY §17 |
 
 Full receipts — figures, numbers, and how to reproduce each one — in
 **[docs/METHODOLOGY.md](docs/METHODOLOGY.md)**.
@@ -101,7 +101,8 @@ FastF1 ──▶ data (load, clean, fuel-correct) ──▶ models (degradation,
 The modelling lives in plain, tested functions; `api.py` is a thin wrapper over
 one `StrategyEngine` plus the results-only `standalone/` modules, and the React
 frontend is a pure client of that API. Per-circuit safety-car risk and pit loss
-are **measured** from 86 races of track-status and in/out-lap data — not assumed.
+are **measured** from every race since 2023 — track-status and in/out-lap data,
+refitted as each new race lands — not assumed.
 
 ## Quickstart
 
@@ -110,7 +111,7 @@ Two processes — the API and the frontend. **Backend:**
 ```bash
 py -3.12 -m venv .venv && .venv\Scripts\Activate.ps1   # (or python3.12 -m venv on unix)
 pip install -e ".[app,dev]" scikit-learn   # scikit-learn powers the outcome predictor
-pytest                                     # 257 no-network tests (network ones opt-in via -m network)
+pytest                                     # 261 no-network tests (network ones opt-in via -m network)
 uvicorn f1se.api:app --reload              # REST API + Swagger at localhost:8000/docs
 pip install -e ".[models]"                 # optional: torch etc. to retrain the LSTM (heavy)
 ```
@@ -188,7 +189,6 @@ offline; everything else serves from the committed datasets.
 ## Roadmap
 
 - LSTM retrain cadence automated per race (currently a frozen export).
-- Per-circuit default track temperatures pre-filling the Strategy slider.
 - Wet-race strategy (the engine is dry-only today; intermediates/wets are out
   of scope for the degradation model).
 

@@ -24,14 +24,14 @@ export default function AboutView() {
           </li>
           <li>
             <strong>Monte-Carlo race simulator</strong> — thousands of race runs per question, with
-            per-circuit safety-car risk and pit loss <em>measured</em> from 86 races, not assumed.
+            per-circuit safety-car risk and pit loss <em>measured</em> from every race since 2023, not assumed.
             Results are distributions, never single numbers.
           </li>
           <li>
             <strong>Labelled priors</strong> for what data can't show: the tyre "cliff" (censored out
-            of race data because teams pit first), track-position cost per stop, and a{" "}
-            <strong>thermal prior</strong> — track temperature shifts degradation, which fixed a real
-            over-stopping bias found by backtesting (stop-count match went 4/8 → 7/8).
+            of race data because teams pit first), and track-position cost per stop. A{" "}
+            <strong>temperature prior</strong> looked like it fixed over-stopping on the races it was
+            tuned on, showed no effect on 54 independent ones, and was removed.
           </li>
           <li>
             <strong>An LSTM next-lap forecaster</strong> — the one place deep learning beat the simple

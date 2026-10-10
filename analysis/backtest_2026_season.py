@@ -79,7 +79,8 @@ def main() -> None:
             continue
 
         # Leave-one-race-out degradation model, then recommend for this track
-        # at its actual track temperature (thermal prior). The censoring pieces
+        # at its actual track temperature (a no-op since the thermal prior was
+        # switched off — METHODOLOGY §17 — kept so it can be re-tested). The censoring pieces
         # (avoidance slope/base adjustments + stint caps) are recomputed from
         # the LOO lap set too, so the held-out race's own avoidance signal
         # can't leak into its prediction.
@@ -124,13 +125,6 @@ def main() -> None:
     print(f"  stop-count vs field-dominant : {field_hit}/{n} ({100*field_hit/n:.0f}%)")
     print(f"  exact tyre set vs winner     : {tyre_hit}/{n} ({100*tyre_hit/n:.0f}%)")
     print(f"  degradation MAE (leave-one-out): {deg_maes/n:.4f} s/lap")
-    print("\nRead honestly: the over-stopping was mostly a WEATHER effect. The pooled degradation model\n"
-          "assumes an average track temp, so it over-predicts wear on cool days (China 23°C, Canada\n"
-          "18°C) -> over-values a 2-stop, and under-predicts on hot ones (Barcelona 50°C). The thermal\n"
-          "prior shifts degradation with track temp and fixes most of it (field-match 4/8 -> 7/8),\n"
-          "including undoing the earlier Barcelona regression. The small track-position prior handles\n"
-          "the one genuinely-processional case (Suzuka). Canada (coldest, but genuinely tyre-hard) is\n"
-          "the honest remaining miss.")
 
 
 if __name__ == "__main__":

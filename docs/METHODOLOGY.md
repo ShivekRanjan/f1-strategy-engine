@@ -102,10 +102,10 @@ multi-modal, with clusters ~2 minutes apart corresponding to 0/1/2 SC periods:
 
 ![Strategy outcome distributions](../analysis/figures/phase3_strategy_distributions.png)
 
-The hazard model is therefore calibrated from **86 races** of per-lap
-track-status data — every race in `track_status.parquet`, refitted at engine
-start rather than baked in, so it tracks the dataset: **0.0108 SC triggers per
-lap, mean duration 5.0 laps** (the literature default of 0.013/4 was close). The
+The hazard model is therefore calibrated from per-lap track-status data for
+every race in `track_status.parquet`, refitted at engine start rather than baked
+in, so it tracks the dataset as races land. At round 16 of 2026 that was 86
+races: **0.0108 SC triggers per lap, mean duration 5.0 laps** (the literature default of 0.013/4 was close). The
 real gain is **per-circuit** rates with
 partial pooling — Australia/Canada/Qatar average ~1.5 SC periods per race while
 Spain had zero in 2023–24, and shrinkage keeps the zero-observation tracks at a
@@ -341,6 +341,9 @@ and, satisfyingly, *undid* the Barcelona regression the overtaking prior had cau
 It's a live control in the app: an **expected-track-temp slider** on the Strategy
 tab — cooler ⇒ fewer stops, hotter ⇒ more. Canada (coldest, but genuinely
 tyre-punishing) is the one honest miss that remains.
+
+*Superseded: tested on 54 independent 2023-25 races the prior has no effect, and it
+was switched off (§17). The 4/8 → 7/8 above was measured on the races it was tuned on.*
 
 *Reproduce: `analysis/backtest_2026_season.py` (uses each race's FastF1 track temp)*
 
@@ -951,7 +954,8 @@ two over-stop — and they are the two hottest races of the season, Monza at
 thermal prior (§9) was validated on (max 51 °C). Zandvoort under-stops. Thermal
 extrapolation is the obvious suspect for the first two, and it is deliberately
 left as a suspect: diagnosing it from these races and then scoring on them would
-be fitting the test, the same trap §15 describes.
+be fitting the test, the same trap §15 describes. *(Resolved in §17 — on
+independent races.)*
 
 **Era shrinkage no longer earns its place.** +1.0% over the old-car prior at
 eleven races was already marginal; at sixteen it is −0.2%, before *and* after the
@@ -967,6 +971,79 @@ that was.
 *Reproduce: `analysis/backtest_2026_season.py`, `phase_2026_shrinkage_honest.py`,
 `phase_2026_lstm_perrace.py`, `phase_2026_deployment_model.py` — all derive their
 races from the data, so they re-run on whatever rounds are present.*
+
+
+---
+
+## 17. The thermal prior, tested where it was never tuned — rejected
+
+§16 left two hot-race strategy misses (Monza 55 °C, Madrid 53 °C) as a named
+suspect: the thermal prior (§9), a linear correction adding 0.006 s/lap of wear
+per °C above 36 °C. Fixing it from those two races and then scoring on them would
+be fitting the test. But 2023–25 is independent — the prior's 0.006 came from the
+2026 backtest — so the test was run there instead: 54 dry races, leave-one-out,
+prior on and off.
+
+| Track temp | Prior ON matches field | Prior OFF |
+|---|---|---|
+| cool < 30 °C | 5/10 | **7/10** |
+| mid 30–45 °C | 21/35 | 21/35 |
+| hot 45 °C+ | 4/9 | 4/9 |
+| **all** | **30/54** | **32/54** |
+
+It doesn't help anywhere, and on cool days it *under*-stops (Bahrain 2024 at
+24 °C, Zandvoort 2025 at 28 °C both lose a correct two-stop). Stop count is a blunt
+test, though — a shifted wear rate often doesn't move the stop decision — so the
+prior's actual claim was tested directly: regress the leave-one-out model's
+degradation-slope error on track temperature, over the same 54 races.
+
+> **Fitted: −0.0000 s/lap per °C, 95% CI [−0.0014, +0.0012]** over 143
+> race-compounds. The prior assumed +0.0060 — over four times the top of the
+> interval.
+
+**There is no temperature effect left to correct.** In hindsight the reason is
+structural: degradation is modelled *per circuit*, and a circuit runs at much the
+same temperature every year, so the per-track slope already contains it. A
+temperature correction on top double-counts. §9's 4/8 → 7/8 was real arithmetic
+on the eight races the prior was tuned on — the same in-sample trap §7 describes,
+caught one level up.
+
+**Switched off** (`ThermalPrior.sensitivity` 0.006 → 0). The decision rests on the
+2023–25 evidence alone, which made the 2026 backtest a genuine test of it rather
+than the input to it:
+
+| 2026, 16 races | Prior ON | **Prior OFF** |
+|---|---|---|
+| stop-count vs field | 12/16 | **13/16** |
+| stop-count vs winner | 10/16 | **11/16** |
+
+Madrid is fixed. **Monza is not** — it still two-stops with the prior off, so its
+miss has another cause, now unexplained rather than misattributed. Australia
+flipped the wrong way at 36 °C, where the prior's adjustment was ~zero, so it was
+already a coin-flip between one and two stops.
+
+The mechanism stays in the code at sensitivity 0, so it can be re-tested if a
+better-conditioned temperature signal turns up (a per-session deviation from each
+track's usual temperature, say). The UI's track-temperature control currently
+moves nothing — that is a product decision pending, not an oversight.
+
+### And era shrinkage — kept, on probation, with the rule written down first
+
+§16 found the 2026 blend at −0.2% against the plain old-car prior. Unlike the
+thermal prior there is no independent data to settle it now: 2023–25 can't test
+a blend whose whole point is the 2026 cars. So it stays, for two reasons that
+aren't "it's already built": it is a statistical tie that wins 10 of 16 races, and
+the censoring guardrail (§11) is built on it — switching base models means
+re-validating that too, and the only place to do it is the same 16 races.
+
+What it doesn't get is an open-ended pass. **Pre-registered here, before those
+races exist:** on 2026 rounds 17–23 only, scored leave-one-out, if shrinkage does
+not beat the old-car prior on mean pace-loss MAE, it is removed. Seven races is a
+small sample; writing the criterion down now is what stops it being re-argued
+afterwards in whichever direction the numbers point.
+
+*Reproduce: `analysis/thermal_out_of_sample.py` (stop counts) and
+`analysis/thermal_out_of_sample.py --slopes` (the slope regression).*
 
 ---
 

@@ -35,7 +35,13 @@ class ThermalPrior:
         roughly the mean of the training races (deg-error ≈ 0 near here).
     """
 
-    sensitivity: float = 0.006
+    # 0.0: the effect is not there. Regressing the leave-one-out slope error on
+    # track temperature over 54 independent 2023-25 races (none of which shaped
+    # the old 0.006) fits -0.0000 s/lap per C, 95% CI [-0.0014, +0.0012]. The
+    # per-track model already absorbs each circuit's usual temperature, so a
+    # correction on top double-counts. 0.006 came from the same eight 2026
+    # races it was then scored on. METHODOLOGY §17.
+    sensitivity: float = 0.0
     ref_temp: float = 36.0
 
     @classmethod

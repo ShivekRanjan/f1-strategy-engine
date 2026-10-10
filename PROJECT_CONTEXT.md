@@ -100,7 +100,7 @@ touching the engine either.
 - [x] **Phase 5** — FastAPI service + React (Vite/TS/Tailwind) frontend (replaced Streamlit)
 - [x] **Phase A** — standalone podium predictor + championship simulator
 - [x] **2026 validation** — Austria backtest, season-wide leave-one-race-out,
-      recency weighting, overtaking + thermal priors (over-stopping fixed 4/8 → 7/8)
+      recency weighting, overtaking prior (a thermal prior was later rejected out-of-sample)
 
 **F1 OS expansion (all done, July 2026):**
 
@@ -128,7 +128,7 @@ cron + a boot warm-up thread cover the free tier's cold starts.
       ingest path that silently dropped seasons
 
 **Remaining:** the safety-car transferability re-run is blocked until the 2026
-season ends (16 of 23 rounds run). A second hand-written NLU evaluation set is
+season ends. A second hand-written NLU evaluation set is
 needed before four queued parser improvements can be judged honestly — the
 first set has been used for decisions and no longer measures quality.
 
@@ -190,24 +190,24 @@ f1-strategy-engine/
 ├── data/processed/        # small committed datasets (app + CI run offline)
 ├── analysis/              # EDA + phase scripts + 2026 backtests
 ├── docs/METHODOLOGY.md    # the receipts — every accepted/rejected model
-└── tests/                 # 257 no-network tests; network ones opt-in
+└── tests/                 # 261 no-network tests; network ones opt-in
 ```
 
 ## Where things stand
 
 **v2.0.0 is tagged, released, and live** (August 2026): the validated engine
 (degradation + priors + LSTM + Monte-Carlo optimiser), the FastAPI service, and
-a 13-view React app — 257 no-network tests green, CI runs both the Python suite
+a 13-view React app — 261 no-network tests green, CI runs both the Python suite
 and the frontend build on every push.
 
 The 2026 season is handled across the regulation reset (era shrinkage +
 recency weighting) and validated the honest way: a leave-one-race-out season
-backtest, whose over-stopping miss was root-caused to **weather** and fixed
-with the thermal prior (stop-count match 4/8 → 7/8; Canada remains the one
-documented miss).
+backtest — 13 of 16 races match the field's stop count. A temperature prior
+once credited with fixing over-stopping turned out to have no effect on races it
+wasn't tuned on, and was removed (METHODOLOGY §17).
 
-**Open work is model work, not shipping work.** The season is mid-break at round
-16 of 23, so the safety-car transferability re-run waits for more races, and the
+**Open work is model work, not shipping work.** The safety-car transferability
+re-run waits for the season to finish, and the
 NLU queue waits on a fresh evaluation set. Nothing is blocked on engineering.
 
 **On keeping this file true.** It was a month stale before anyone noticed —
