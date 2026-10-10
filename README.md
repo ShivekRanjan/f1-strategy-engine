@@ -101,7 +101,7 @@ FastF1 ──▶ data (load, clean, fuel-correct) ──▶ models (degradation,
 The modelling lives in plain, tested functions; `api.py` is a thin wrapper over
 one `StrategyEngine` plus the results-only `standalone/` modules, and the React
 frontend is a pure client of that API. Per-circuit safety-car risk and pit loss
-are **measured** from 81 races of track-status and in/out-lap data — not assumed.
+are **measured** from 86 races of track-status and in/out-lap data — not assumed.
 
 ## Quickstart
 
@@ -110,7 +110,7 @@ Two processes — the API and the frontend. **Backend:**
 ```bash
 py -3.12 -m venv .venv && .venv\Scripts\Activate.ps1   # (or python3.12 -m venv on unix)
 pip install -e ".[app,dev]" scikit-learn   # scikit-learn powers the outcome predictor
-pytest                                     # 250 no-network tests (network ones opt-in via -m network)
+pytest                                     # 252 no-network tests (network ones opt-in via -m network)
 uvicorn f1se.api:app --reload              # REST API + Swagger at localhost:8000/docs
 pip install -e ".[models]"                 # optional: torch etc. to retrain the LSTM (heavy)
 ```

@@ -128,7 +128,7 @@ cron + a boot warm-up thread cover the free tier's cold starts.
       ingest path that silently dropped seasons
 
 **Remaining:** the safety-car transferability re-run is blocked until the 2026
-season ends (11 of 23 rounds run). A second hand-written NLU evaluation set is
+season ends (16 of 23 rounds run). A second hand-written NLU evaluation set is
 needed before four queued parser improvements can be judged honestly — the
 first set has been used for decisions and no longer measures quality.
 
@@ -190,14 +190,14 @@ f1-strategy-engine/
 ├── data/processed/        # small committed datasets (app + CI run offline)
 ├── analysis/              # EDA + phase scripts + 2026 backtests
 ├── docs/METHODOLOGY.md    # the receipts — every accepted/rejected model
-└── tests/                 # 250 no-network tests; network ones opt-in
+└── tests/                 # 252 no-network tests; network ones opt-in
 ```
 
 ## Where things stand
 
 **v2.0.0 is tagged, released, and live** (August 2026): the validated engine
 (degradation + priors + LSTM + Monte-Carlo optimiser), the FastAPI service, and
-a 13-view React app — 250 no-network tests green, CI runs both the Python suite
+a 13-view React app — 252 no-network tests green, CI runs both the Python suite
 and the frontend build on every push.
 
 The 2026 season is handled across the regulation reset (era shrinkage +
@@ -207,7 +207,7 @@ with the thermal prior (stop-count match 4/8 → 7/8; Canada remains the one
 documented miss).
 
 **Open work is model work, not shipping work.** The season is mid-break at round
-11 of 23, so the safety-car transferability re-run waits for more races, and the
+16 of 23, so the safety-car transferability re-run waits for more races, and the
 NLU queue waits on a fresh evaluation set. Nothing is blocked on engineering.
 
 **On keeping this file true.** It was a month stale before anyone noticed —

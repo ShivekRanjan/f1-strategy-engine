@@ -24,7 +24,7 @@ export default function AboutView() {
           </li>
           <li>
             <strong>Monte-Carlo race simulator</strong> — thousands of race runs per question, with
-            per-circuit safety-car risk and pit loss <em>measured</em> from 81 races, not assumed.
+            per-circuit safety-car risk and pit loss <em>measured</em> from 86 races, not assumed.
             Results are distributions, never single numbers.
           </li>
           <li>

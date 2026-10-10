@@ -102,9 +102,9 @@ multi-modal, with clusters ~2 minutes apart corresponding to 0/1/2 SC periods:
 
 ![Strategy outcome distributions](../analysis/figures/phase3_strategy_distributions.png)
 
-The hazard model is therefore calibrated from **81 races** of per-lap
+The hazard model is therefore calibrated from **86 races** of per-lap
 track-status data — every race in `track_status.parquet`, refitted at engine
-start rather than baked in, so it tracks the dataset: **0.0106 SC triggers per
+start rather than baked in, so it tracks the dataset: **0.0108 SC triggers per
 lap, mean duration 5.0 laps** (the literature default of 0.013/4 was close). The
 real gain is **per-circuit** rates with
 partial pooling — Australia/Canada/Qatar average ~1.5 SC periods per race while
@@ -597,7 +597,7 @@ hazards are shrunk per circuit on the same footing — that mattered, because th
 engine uses the *per-track* models, so calibrating only the global one would
 have confined the fix to a fallback path.
 
-Measured on all 81 races: SC 0.01064/lap, VSC 0.00901/lap — a **+85%**
+Measured on all 81 races available at round 11: SC 0.01064/lap, VSC 0.00901/lap — a **+85%**
 neutralisation hazard. Across 20,000 simulated 60-lap races the share containing
 at least one neutralised lap rises from **47% to 69%**. At Silverstone, Las
 Vegas, Miami and the Hungaroring the VSC hazard now *exceeds* the SC hazard.
@@ -627,7 +627,7 @@ entire ~21 s pit loss, the largest single discount available in a race. It can
 also satisfy the two-compound requirement outright: at Monaco, drivers who
 changed under a lap-one red flag never needed a later stop at all.
 
-Measured over 81 races: **8 had a red flag** (~1 race in 10), a per-lap hazard of
+Measured over the 81 races available at round 11: **8 had a red flag** (~1 race in 10), a per-lap hazard of
 0.00205. Modelled as a fourth state with `pit_loss = 0` and, deliberately, a lap
 factor of **1.0** — a suspension is dead time every strategy serves equally, so
 it cancels in a between-strategy comparison, whereas the free tyre change does
