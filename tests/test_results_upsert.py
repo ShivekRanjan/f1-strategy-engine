@@ -29,3 +29,11 @@ def test_an_empty_cached_race_is_a_miss_not_a_hit(tmp_path):
     assert R._usable_cache(empty) is None
     assert R._usable_cache(tmp_path / "missing.parquet") is None
     assert len(R._usable_cache(good)) == 2
+
+
+def test_points_are_filled_from_position_only_when_the_source_gave_none():
+    """A laps-derived sprint arrived with positions but 0 points for everyone."""
+    blank = pd.DataFrame({"position": [1.0, 2.0, 9.0, None], "points": [0.0, 0.0, 0.0, 0.0]})
+    assert list(R._fill_points(blank, R.SPRINT_POINTS)["points"]) == [8.0, 7.0, 0.0, 0.0]
+    official = pd.DataFrame({"position": [1.0, 2.0], "points": [26.0, 18.0]})   # e.g. +FL point
+    assert R._fill_points(official, R.RACE_POINTS).equals(official)

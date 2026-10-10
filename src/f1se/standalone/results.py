@@ -19,6 +19,29 @@ PROCESSED = PROJECT_ROOT / "data" / "processed"
 BY_RACE_RESULTS = PROCESSED / "by_race_results"
 
 
+# Current scales, confirmed against officially scored 2026 rounds. Only used
+# when a source gave no points at all, which only happens for sessions so recent
+# that FastF1 derived the order from lap times — so older seasons, with their
+# fastest-lap point, always keep the official figures.
+RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1]
+
+
+def _fill_points(df: pd.DataFrame, scale: list[int]) -> pd.DataFrame:
+    """Points from finishing position, when the source supplied none.
+
+    A laps-derived classification has positions but zero points, and a race
+    where nobody scores is impossible — so all-zero means "not provided", never
+    "nobody scored". Left alone, the standings would silently drop the round.
+    """
+    if df.empty or df["points"].fillna(0).any():
+        return df
+    df = df.copy()
+    df["points"] = [float(scale[int(p) - 1]) if pd.notna(p) and 1 <= p <= len(scale) else 0.0
+                    for p in df["position"]]
+    return df
+
+
 def _usable_cache(fp) -> pd.DataFrame | None:
     """A cached race, or None if it must be (re-)pulled.
 
@@ -80,11 +103,15 @@ def build_results_dataset(years: list[int], *, out_name: str = "results.parquet"
         for rnd in rounds:
             fp = BY_RACE_RESULTS / f"{year}_{rnd:02d}.parquet"
             if (cached := _usable_cache(fp)) is not None:
-                frames.append(cached)
+                frames.append(_fill_points(cached, RACE_POINTS))
                 continue
             try:
                 s = fastf1.get_session(year, rnd, "R")
-                s.load(laps=False, telemetry=False, weather=False, messages=False)
+                # laps + messages: for a recent session Ergast has nothing yet, and
+                # FastF1 can only derive the classification from lap times plus the
+                # race-control messages. Without them positions come back all-NaN
+                # (same fix as the qualifying grid in outcome.py).
+                s.load(laps=True, telemetry=False, weather=False, messages=True)
                 r = s.results
                 df = pd.DataFrame({
                     "year": int(year),
@@ -103,6 +130,7 @@ def build_results_dataset(years: list[int], *, out_name: str = "results.parquet"
                     # the broken 2021 cache was made. Skip; the next run retries.
                     print(f"  - {year} r{rnd:02d}: no classification yet, skipped", flush=True)
                     continue
+                df = _fill_points(df, RACE_POINTS)
                 df.to_parquet(fp)
                 frames.append(df)
                 print(f"  results {year} r{rnd:02d}: {df['event_name'].iloc[0]}", flush=True)
@@ -138,11 +166,15 @@ def build_sprint_dataset(years: list[int], *, out_name: str = "sprint_points.par
         for rnd in sprint_rounds:
             fp = by_race / f"{year}_{rnd:02d}.parquet"
             if (cached := _usable_cache(fp)) is not None:
-                frames.append(cached)
+                frames.append(_fill_points(cached, SPRINT_POINTS))
                 continue
             try:
                 s = fastf1.get_session(year, rnd, "S")
-                s.load(laps=False, telemetry=False, weather=False, messages=False)
+                # laps + messages: for a recent session Ergast has nothing yet, and
+                # FastF1 can only derive the classification from lap times plus the
+                # race-control messages. Without them positions come back all-NaN
+                # (same fix as the qualifying grid in outcome.py).
+                s.load(laps=True, telemetry=False, weather=False, messages=True)
                 r = s.results
                 df = pd.DataFrame({
                     "year": int(year),
@@ -159,6 +191,7 @@ def build_sprint_dataset(years: list[int], *, out_name: str = "sprint_points.par
                     # the broken 2021 cache was made. Skip; the next run retries.
                     print(f"  - {year} r{rnd:02d}: no classification yet, skipped", flush=True)
                     continue
+                df = _fill_points(df, SPRINT_POINTS)
                 df.to_parquet(fp)
                 frames.append(df)
                 print(f"  sprint {year} r{rnd:02d}: {df['event_name'].iloc[0]}", flush=True)
