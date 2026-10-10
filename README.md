@@ -110,7 +110,7 @@ Two processes — the API and the frontend. **Backend:**
 ```bash
 py -3.12 -m venv .venv && .venv\Scripts\Activate.ps1   # (or python3.12 -m venv on unix)
 pip install -e ".[app,dev]" scikit-learn   # scikit-learn powers the outcome predictor
-pytest                                     # 252 no-network tests (network ones opt-in via -m network)
+pytest                                     # 256 no-network tests (network ones opt-in via -m network)
 uvicorn f1se.api:app --reload              # REST API + Swagger at localhost:8000/docs
 pip install -e ".[models]"                 # optional: torch etc. to retrain the LSTM (heavy)
 ```

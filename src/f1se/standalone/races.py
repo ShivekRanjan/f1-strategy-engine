@@ -13,6 +13,7 @@ from functools import lru_cache
 
 import pandas as pd
 
+from f1se.data.circuits import circuit_key
 from f1se.standalone.outcome import _f, _resolve_results
 from f1se.standalone.podium import build_features, predict_race, train_podium_model
 
@@ -42,6 +43,9 @@ def _season_model(season: int):
 
 def race_card(season: int, track: str) -> dict | None:
     """Finishing order + pre-race podium prediction for one race, or ``None``."""
+    # Callers may pass the event name as the calendar shows it ("Bahrain
+    # Grand Prix", 2026); the results store circuit keys. Same mapping both ways.
+    track = circuit_key(season, track)
     rf = _results_and_features()
     if rf is None:
         return None

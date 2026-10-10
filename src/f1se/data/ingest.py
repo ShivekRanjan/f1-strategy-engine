@@ -18,6 +18,7 @@ from pathlib import Path
 import pandas as pd
 
 from f1se.config import PROJECT_ROOT, enable_cache
+from f1se.data.circuits import apply_circuit_keys
 from f1se.data.clean import clean_laps
 from f1se.data.loader import load_session_laps
 
@@ -56,6 +57,7 @@ def _write_combined(frames, cache_dir, out_name: str, *, rebuild: bool, unit: st
     combined file, discarding every other season without a word.
     """
     full = pd.concat(frames, ignore_index=True) if rebuild else combine_cached_races(cache_dir)
+    full = apply_circuit_keys(full)   # models key on the track, not the event
     out_fp = PROCESSED / out_name
     if out_fp.exists():
         try:

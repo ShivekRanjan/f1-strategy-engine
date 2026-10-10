@@ -14,6 +14,7 @@ from functools import lru_cache
 import pandas as pd
 
 from f1se.config import PROJECT_ROOT, enable_cache
+from f1se.data.circuits import circuit_key
 
 PROCESSED = PROJECT_ROOT / "data" / "processed"
 OUT = PROCESSED / "track_layouts.parquet"
@@ -63,7 +64,7 @@ def build_track_layouts(seasons: list[int] | None = None) -> pd.DataFrame:
         for rnd in rounds:
             try:
                 ev = sched[sched["RoundNumber"] == rnd].iloc[0]
-                track = str(ev["EventName"])
+                track = circuit_key(yr, str(ev["EventName"]))
                 if track in rows:
                     continue
                 s = fastf1.get_session(yr, rnd, "R")
@@ -81,6 +82,11 @@ def build_track_layouts(seasons: list[int] | None = None) -> pd.DataFrame:
     if not rows:
         raise RuntimeError("no track layouts pulled")
     df = pd.DataFrame(rows.values())
+    # Merge, newest wins: rebuilding one season must not drop every circuit
+    # that season did not visit.
+    if OUT.exists():
+        old = pd.read_parquet(OUT)
+        df = pd.concat([old[~old["track"].isin(df["track"])], df], ignore_index=True)
     df.to_parquet(OUT)
     print(f"DONE: {len(df)} track layouts -> {OUT}", flush=True)
     return df

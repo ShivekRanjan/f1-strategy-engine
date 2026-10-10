@@ -190,14 +190,14 @@ f1-strategy-engine/
 ├── data/processed/        # small committed datasets (app + CI run offline)
 ├── analysis/              # EDA + phase scripts + 2026 backtests
 ├── docs/METHODOLOGY.md    # the receipts — every accepted/rejected model
-└── tests/                 # 252 no-network tests; network ones opt-in
+└── tests/                 # 256 no-network tests; network ones opt-in
 ```
 
 ## Where things stand
 
 **v2.0.0 is tagged, released, and live** (August 2026): the validated engine
 (degradation + priors + LSTM + Monte-Carlo optimiser), the FastAPI service, and
-a 13-view React app — 252 no-network tests green, CI runs both the Python suite
+a 13-view React app — 256 no-network tests green, CI runs both the Python suite
 and the frontend build on every push.
 
 The 2026 season is handled across the regulation reset (era shrinkage +

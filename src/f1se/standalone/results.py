@@ -13,6 +13,7 @@ import sys
 import pandas as pd
 
 from f1se.config import PROJECT_ROOT, enable_cache
+from f1se.data.circuits import apply_circuit_keys
 
 PROCESSED = PROJECT_ROOT / "data" / "processed"
 BY_RACE_RESULTS = PROCESSED / "by_race_results"
@@ -41,7 +42,7 @@ def _upsert_years(frames: list[pd.DataFrame], years: list[int], out_name: str) -
     the per-race cache, because the cache still holds 2021-22 (2021 an all-NaN
     broken pull) that were deliberately dropped from the combined file.
     """
-    new = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    new = apply_circuit_keys(pd.concat(frames, ignore_index=True)) if frames else pd.DataFrame()
     out = PROCESSED / out_name
     if not out.exists():
         new.to_parquet(out)
