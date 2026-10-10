@@ -151,6 +151,8 @@ is dragged by one bad race (round 2, where the prior is much better); shrinkage
 is the better model in **8 of 11** races. So the honest summary is *consistently
 but modestly better*, not the step-change originally advertised.
 
+*Re-measured at 16 races, even that margin is gone: −0.2%, better in 10 of 16 (§16).*
+
 The regime shift itself is unaffected and remains the real finding: 2026 slopes
 differ sharply from pre-2026 (HARD roughly doubles, +0.034 → +0.059 s/lap), so a
 2026-aware model is still the right call — the argument for it is that it tracks
@@ -232,6 +234,8 @@ But the claim gets *stronger* where it counts: winning 11 of 11 unseen races
 with a 3.7-point spread is a far better argument than one impressive race,
 because it can't be luck. This is the difference between "the model beat a
 baseline once" and "the model beats the baseline."
+
+*Re-measured at 16 races: +13.1%, winning 16 of 16 (§16).*
 Two honest readings come with it. First, the *rolling-slope* baseline is **worse
 than persistence**: at a one-lap horizon, fuel-corrected pace is close to a random
 walk, so naively projecting a 5-lap slope just amplifies per-lap noise — a useful
@@ -444,6 +448,9 @@ anything after it.
 | Reporting — never sees 2026 | **1.73** |
 | Deployment — walk-forward on 2026 | 1.64 |
 | Naive grid baseline | **1.73** |
+
+*At 16 races: reporting 1.81, deployment 1.81, grid 1.88 — still no case for the
+deployment model, and the grid now edges both (§16).*
 
 Pooled ROC-AUC was identical to four decimals (0.9295 vs 0.9294). Per race the
 deployment model was better in **0**, worse in **1**, and identical in **10**.
@@ -897,6 +904,69 @@ model on the test set.
 *Reproduce: `analysis/nlu_train.py --seed N --out ...`, `analysis/nlu_benchmark.py`
 (scores every seed present, prints the spread, and reports a SPLIT verdict when
 runs disagree)*
+
+
+---
+
+## 16. Sixteen races — and two circuits that weren't what their names said
+
+At round 16 the four headline backtests were re-run on five more unseen races.
+The first eleven reproduced exactly; every change came from the new five.
+
+Two of those five ran at circuits the engine had never seen, while believing it
+had. In 2026 the Spanish GP moved from Barcelona to a new circuit in Madrid
+(Barcelona kept a race, as the "Barcelona GP"), and the Bahrain GP was held in
+Malaysia. Everything keyed on event name, so Madrid inherited three years of
+Barcelona's degradation, pit loss and safety-car history, Kuala Lumpur inherited
+Sakhir's, and Barcelona's own history sat orphaned under a name it no longer
+races under. The UI even drew Barcelona's outline for Madrid.
+
+It was found *through* the backtest, which is exactly the situation where a fix
+can quietly become tuning on the test races. It isn't one here — Madrid is not
+Barcelona, whatever it does to a score — but that only holds if both columns are
+published, so they are. The fix lives in the data (`f1se.data.circuits`), so
+every consumer became circuit-correct at once.
+
+| | 11 races | 16, before fix | **16, after fix** |
+|---|---|---|---|
+| Strategy stop-count vs field | 10/11 | 11/16 | **12/16** |
+| Strategy stop-count vs winner | 8/11 | 9/16 | **10/16** |
+| Degradation MAE, leave-one-out | 0.060 | 0.0544 | **0.0536** |
+| Shrinkage vs old-car prior | +1.0% | −0.3% | **−0.2%** |
+| Shrinkage better in | 8 of 11 | 10 of 16 | **10 of 16** |
+| LSTM vs persistence | +13.4%, 11/11 | +13.1%, 16/16 | **+13.1%, 16/16** |
+| Podium ROC-AUC | 0.93 | 0.935 | **0.935** |
+| Podium hit@3, model vs grid | 1.73 vs 1.73 | 1.81 vs 1.88 | **1.81 vs 1.88** |
+
+**The fix did what it should, and nothing else.** Kuala Lumpur flipped from a
+two-stop miss to a correct one-stop once it stopped borrowing Sakhir's wear, and
+Barcelona's degradation error fell from 0.150 to 0.123 s/lap once it had its own
+history back. The LSTM and the podium model don't key on circuit and didn't move
+at all — a free control that the change was scoped correctly.
+
+**Strategy got worse on new races, and the cause is not fixed.** One of the five
+new races matched the field before the fix, two after. Of the three still wrong,
+two over-stop — and they are the two hottest races of the season, Monza at
+55 °C and Madrid at 53 °C, both above anything in the eleven-race window the
+thermal prior (§9) was validated on (max 51 °C). Zandvoort under-stops. Thermal
+extrapolation is the obvious suspect for the first two, and it is deliberately
+left as a suspect: diagnosing it from these races and then scoring on them would
+be fitting the test, the same trap §15 describes.
+
+**Era shrinkage no longer earns its place.** +1.0% over the old-car prior at
+eleven races was already marginal; at sixteen it is −0.2%, before *and* after the
+fix. Correcting the circuits improved both models together — the prior went from
++9.8% to +12.0% over naive — so it left the gap where it was. The 2026-aware model
+is not doing harm, but the evidence for preferring it has run out. The regime
+shift in §7 is still real; this is a statement about the blend, not the reset.
+
+**The grid baseline now beats the podium model**, by one podium slot in 48 —
+within noise, but it is the direction, so it is published instead of the tie
+that was.
+
+*Reproduce: `analysis/backtest_2026_season.py`, `phase_2026_shrinkage_honest.py`,
+`phase_2026_lstm_perrace.py`, `phase_2026_deployment_model.py` — all derive their
+races from the data, so they re-run on whatever rounds are present.*
 
 ---
 
