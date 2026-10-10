@@ -1,0 +1,49 @@
+# Lock the engine's podium call on race weekends — after qualifying, before the
+# race — and commit it, so the commit timestamp is the evidence nothing was
+# adjusted later. analysis/preregister.py does the deciding: it waits for the
+# real qualifying grid, never locks after lights out, never rewrites a call.
+#
+# Depends on refresh-data.yml having pulled the previous race: the round to
+# predict is "one after the last result on file". If that is stale, the script
+# fails red rather than lock a call for a race that has already run.
+name: Pre-register race call
+
+on:
+  schedule:
+    - cron: "30 */2 * 3-12 5,6,0"   # every 2h, Fri-Sun, March-December
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-writes          # shared with refresh-data.yml; both push to main
+  cancel-in-progress: false
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[app,dev]" scikit-learn xgboost
+
+      - name: Lock the call if the qualifying grid is in
+        run: python analysis/preregister.py
+
+      - name: Commit the locked call
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add predictions/
+          if git diff --cached --quiet; then echo "nothing new to lock"; exit 0; fi
+          git commit -m "Pre-register the engine's call: $(git diff --cached --name-only | head -1)"
+          git pull --rebase --autostash
+          git push

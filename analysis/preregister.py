@@ -10,7 +10,9 @@ This writes the call to disk *before* lights out, so the commit timestamp is the
 evidence. Same idea as pre-registering a study before collecting the data: it
 converts "trust us" into "check the git history".
 
-Run it after qualifying (so the grid is real) and before the race:
+Safe to run any time: it only locks once the real qualifying grid is published,
+never after lights out, and never rewrites a locked file. Run it by hand or let
+`.github/workflows/preregister.yml` run it on race weekends:
 
     python analysis/preregister.py
 
@@ -81,8 +83,23 @@ def main() -> int:
     out_dir.mkdir(exist_ok=True)
     fp = out_dir / f"{season}_r{rnd}_{_slug(event)}.json"
     if fp.exists():
-        print(f"{fp.name} already exists — refusing to overwrite a locked call")
+        print(f"{fp.name} already locked — leaving it alone")
+        return 0
+    # A call made after lights out is not a pre-registration, and an unattended
+    # run with stale results data would otherwise lock exactly that: next_round
+    # comes from the last result on file. Loud on purpose — it means a refresh
+    # was missed, not that there is nothing to do.
+    if race_start and datetime.fromisoformat(race_start) <= datetime.now(UTC):
+        print(f"round {rnd} ({event}) already started at {race_start} — results data "
+              "is stale; refusing to lock a call after the fact")
         return 1
+    # Only lock off the real grid. Before qualifying is published the call falls
+    # back to projected form, and since a locked file is never rewritten, locking
+    # early would make the weaker call permanent.
+    if payload["grid_source"] != "qualifying":
+        print(f"round {rnd}: qualifying grid not published yet "
+              f"(grid from {payload['grid_source']}) — not locking")
+        return 0
     fp.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
     print(f"wrote {fp.relative_to(PROJECT_ROOT)}")

@@ -59,6 +59,14 @@ def _write_combined(frames, cache_dir, out_name: str, *, rebuild: bool, unit: st
     full = pd.concat(frames, ignore_index=True) if rebuild else combine_cached_races(cache_dir)
     full = apply_circuit_keys(full)   # models key on the track, not the event
     out_fp = PROCESSED / out_name
+    if not rebuild and out_fp.exists():
+        # Keep every season the cache doesn't hold. Locally the cache holds all of
+        # them and this is a no-op; on a fresh CI runner it holds only the year
+        # just pulled, and without this the combined file would be rebuilt from
+        # that one year (and then refused by the shrink guard below).
+        old = pd.read_parquet(out_fp)
+        full = pd.concat([old[~old["year"].isin(full["year"].unique())], full],
+                         ignore_index=True)
     if out_fp.exists():
         try:
             prev = len(pd.read_parquet(out_fp))

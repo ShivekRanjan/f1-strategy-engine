@@ -1,0 +1,70 @@
+# Pull the current season's new races every Monday and commit them, so the live
+# app and its models keep up without anyone remembering to. In October 2026 the
+# data was found five rounds behind, with a results cache frozen since June —
+# both discovered only because someone came back and asked.
+#
+# The full test suite runs before anything is committed, and every builder
+# refuses to shrink a dataset, so a bad pull fails red instead of landing.
+name: Refresh race data
+
+on:
+  schedule:
+    - cron: "0 6 * 3-12 1"   # Mondays, March-December: after each race weekend
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-writes          # shared with preregister.yml; both push to main
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[app,dev]" scikit-learn xgboost
+
+      # Carry only the small per-race parquets between runs (a few MB); the
+      # FastF1 HTTP cache runs to gigabytes. With them restored, a run pulls just
+      # the races it hasn't seen. Without them it still works, only slower —
+      # every builder upserts by year, so a partial cache can't shrink the data.
+      - uses: actions/cache@v4
+        with:
+          path: data/processed/by_race*
+          key: by-race-${{ github.run_id }}
+          restore-keys: by-race-
+
+      - name: Pull the current season
+        run: |
+          set -e
+          YEAR=$(date -u +%Y)
+          python -m f1se.standalone.results "$YEAR"
+          python -m f1se.standalone.results sprints "$YEAR"
+          python -c "import pandas as pd, sys; sys.exit(0 if (pd.read_parquet('data/processed/results.parquet').year == $YEAR).any() else 1)" \
+            || { echo "no $YEAR races yet — nothing to pull"; exit 0; }
+          python -m f1se.data.ingest "$YEAR"
+          python -m f1se.data.ingest status "$YEAR"
+          python -m f1se.data.ingest racelaps "$YEAR"
+
+      - name: Test
+        run: pytest -q
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/processed/*.parquet
+          if git diff --cached --quiet; then echo "no new data"; exit 0; fi
+          git commit -m "Data: weekly refresh $(date -u +%Y-%m-%d)"
+          git pull --rebase --autostash
+          git push
