@@ -1,0 +1,164 @@
+{
+  "season": 2026,
+  "round": 17,
+  "event_name": "Singapore Grand Prix",
+  "made_at": "2026-10-10T15:09:41+00:00",
+  "race_start": "2026-10-11T12:00:00+00:00",
+  "grid_source": "qualifying",
+  "model": {
+    "trained_on_years": "< 2026",
+    "features": [
+      "grid",
+      "driver_form_pos",
+      "driver_form_pts",
+      "driver_podium_rate",
+      "team_form_pts"
+    ]
+  },
+  "called_podium": [
+    "VER",
+    "LEC",
+    "ANT"
+  ],
+  "predictions": [
+    {
+      "driver": "VER",
+      "team": "Red Bull Racing",
+      "grid": 1,
+      "podium_prob": 0.8872
+    },
+    {
+      "driver": "LEC",
+      "team": "Ferrari",
+      "grid": 2,
+      "podium_prob": 0.7618
+    },
+    {
+      "driver": "ANT",
+      "team": "Mercedes",
+      "grid": 4,
+      "podium_prob": 0.6421
+    },
+    {
+      "driver": "HAM",
+      "team": "Ferrari",
+      "grid": 3,
+      "podium_prob": 0.6378
+    },
+    {
+      "driver": "NOR",
+      "team": "McLaren",
+      "grid": 5,
+      "podium_prob": 0.2447
+    },
+    {
+      "driver": "RUS",
+      "team": "Mercedes",
+      "grid": 6,
+      "podium_prob": 0.064
+    },
+    {
+      "driver": "HAD",
+      "team": "Red Bull Racing",
+      "grid": 22,
+      "podium_prob": 0.0397
+    },
+    {
+      "driver": "PIA",
+      "team": "McLaren",
+      "grid": 7,
+      "podium_prob": 0.0222
+    },
+    {
+      "driver": "TSU",
+      "team": "Racing Bulls",
+      "grid": 23,
+      "podium_prob": 0.0083
+    },
+    {
+      "driver": "LIN",
+      "team": "Racing Bulls",
+      "grid": 10,
+      "podium_prob": 0.0078
+    },
+    {
+      "driver": "LAW",
+      "team": "Racing Bulls",
+      "grid": 9,
+      "podium_prob": 0.0077
+    },
+    {
+      "driver": "COL",
+      "team": "Alpine",
+      "grid": 16,
+      "podium_prob": 0.007
+    },
+    {
+      "driver": "GAS",
+      "team": "Alpine",
+      "grid": 8,
+      "podium_prob": 0.007
+    },
+    {
+      "driver": "ALO",
+      "team": "Aston Martin",
+      "grid": 17,
+      "podium_prob": 0.0068
+    },
+    {
+      "driver": "STR",
+      "team": "Aston Martin",
+      "grid": 19,
+      "podium_prob": 0.0068
+    },
+    {
+      "driver": "BOT",
+      "team": "Cadillac",
+      "grid": 21,
+      "podium_prob": 0.0068
+    },
+    {
+      "driver": "HUL",
+      "team": "Audi",
+      "grid": 11,
+      "podium_prob": 0.0068
+    },
+    {
+      "driver": "BOR",
+      "team": "Audi",
+      "grid": 15,
+      "podium_prob": 0.0068
+    },
+    {
+      "driver": "PER",
+      "team": "Cadillac",
+      "grid": 20,
+      "podium_prob": 0.0068
+    },
+    {
+      "driver": "OCO",
+      "team": "Haas F1 Team",
+      "grid": 13,
+      "podium_prob": 0.0068
+    },
+    {
+      "driver": "BEA",
+      "team": "Haas F1 Team",
+      "grid": 12,
+      "podium_prob": 0.0068
+    },
+    {
+      "driver": "ALB",
+      "team": "Williams",
+      "grid": 18,
+      "podium_prob": 0.0068
+    },
+    {
+      "driver": "SAI",
+      "team": "Williams",
+      "grid": 14,
+      "podium_prob": 0.0068
+    }
+  ],
+  "scored": false
+}
