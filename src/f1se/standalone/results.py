@@ -18,6 +18,43 @@ PROCESSED = PROJECT_ROOT / "data" / "processed"
 BY_RACE_RESULTS = PROCESSED / "by_race_results"
 
 
+def _usable_cache(fp) -> pd.DataFrame | None:
+    """A cached race, or None if it must be (re-)pulled.
+
+    An empty or unclassified file is a miss, not a hit. A pull in June cached
+    empty frames for every race not yet run, and because any existing file was
+    trusted forever, R07-R22 stayed frozen empty for four months — later races
+    were never even attempted. Treating them as misses makes that cache heal.
+    """
+    if not fp.exists():
+        return None
+    df = pd.read_parquet(fp)
+    return None if df.empty or df["position"].isna().all() else df
+
+
+def _upsert_years(frames: list[pd.DataFrame], years: list[int], out_name: str) -> pd.DataFrame:
+    """Replace only ``years`` in the combined file and keep every other season.
+
+    Both builders used to write just the years they were asked for over the
+    whole file, so ``results 2026`` silently deleted 2023-25 — the defect that
+    once cost 60,928 laps in ``data/ingest.py``. Upsert rather than rebuild from
+    the per-race cache, because the cache still holds 2021-22 (2021 an all-NaN
+    broken pull) that were deliberately dropped from the combined file.
+    """
+    new = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    out = PROCESSED / out_name
+    if not out.exists():
+        new.to_parquet(out)
+        return new
+    old = pd.read_parquet(out)
+    full = pd.concat([old[~old["year"].isin(years)], new], ignore_index=True)
+    if len(full) < len(old):
+        # A failed network pull must not erase what is already on disk.
+        raise RuntimeError(f"refusing to shrink {out_name}: {len(old)} rows -> {len(full)}")
+    full.to_parquet(out)
+    return full
+
+
 def season_rounds(year: int) -> list[int]:
     enable_cache()
     import fastf1
@@ -41,8 +78,8 @@ def build_results_dataset(years: list[int], *, out_name: str = "results.parquet"
             continue
         for rnd in rounds:
             fp = BY_RACE_RESULTS / f"{year}_{rnd:02d}.parquet"
-            if fp.exists():
-                frames.append(pd.read_parquet(fp))
+            if (cached := _usable_cache(fp)) is not None:
+                frames.append(cached)
                 continue
             try:
                 s = fastf1.get_session(year, rnd, "R")
@@ -59,14 +96,19 @@ def build_results_dataset(years: list[int], *, out_name: str = "results.parquet"
                     "points": pd.to_numeric(r["Points"], errors="coerce"),
                     "status": r["Status"].astype("string"),
                 })
+                if df["position"].isna().all():
+                    # Not run yet, or a light load returning just the entry list.
+                    # Caching it would freeze an all-NaN race in forever — how
+                    # the broken 2021 cache was made. Skip; the next run retries.
+                    print(f"  - {year} r{rnd:02d}: no classification yet, skipped", flush=True)
+                    continue
                 df.to_parquet(fp)
                 frames.append(df)
                 print(f"  results {year} r{rnd:02d}: {df['event_name'].iloc[0]}", flush=True)
             except Exception as e:  # pragma: no cover - network
                 print(f"  ! {year} r{rnd:02d} results FAILED: {e}", flush=True)
 
-    full = pd.concat(frames, ignore_index=True)
-    full.to_parquet(PROCESSED / out_name)
+    full = _upsert_years(frames, years, out_name)
     print(f"\nDONE: results for {len(frames)} races -> {PROCESSED / out_name}", flush=True)
     return full
 
@@ -94,8 +136,8 @@ def build_sprint_dataset(years: list[int], *, out_name: str = "sprint_points.par
                          if int(r) >= 1 and "sprint" in str(fmt).lower()]
         for rnd in sprint_rounds:
             fp = by_race / f"{year}_{rnd:02d}.parquet"
-            if fp.exists():
-                frames.append(pd.read_parquet(fp))
+            if (cached := _usable_cache(fp)) is not None:
+                frames.append(cached)
                 continue
             try:
                 s = fastf1.get_session(year, rnd, "S")
@@ -110,15 +152,19 @@ def build_sprint_dataset(years: list[int], *, out_name: str = "sprint_points.par
                     "position": pd.to_numeric(r["Position"], errors="coerce"),
                     "points": pd.to_numeric(r["Points"], errors="coerce").fillna(0.0),
                 })
+                if df["position"].isna().all():
+                    # Not run yet, or a light load returning just the entry list.
+                    # Caching it would freeze an all-NaN race in forever — how
+                    # the broken 2021 cache was made. Skip; the next run retries.
+                    print(f"  - {year} r{rnd:02d}: no classification yet, skipped", flush=True)
+                    continue
                 df.to_parquet(fp)
                 frames.append(df)
                 print(f"  sprint {year} r{rnd:02d}: {df['event_name'].iloc[0]}", flush=True)
             except Exception as e:  # pragma: no cover - network
                 print(f"  ! {year} r{rnd:02d} sprint FAILED: {e}", flush=True)
 
-    full = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(
-        columns=["year", "round", "event_name", "driver", "team", "position", "points"])
-    full.to_parquet(PROCESSED / out_name)
+    full = _upsert_years(frames, years, out_name)
     print(f"\nDONE: sprints for {len(frames)} events -> {PROCESSED / out_name}", flush=True)
     return full
 
