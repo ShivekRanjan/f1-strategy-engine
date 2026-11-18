@@ -5,6 +5,9 @@
 #
 # The full test suite runs before anything is committed, and every builder
 # refuses to shrink a dataset, so a bad pull fails red instead of landing.
+#
+# Lap timing needs an F1 TV account (repo secrets F1_USERNAME, F1_PASSWORD);
+# without one, only that step is skipped.
 name: Refresh race data
 
 on:
@@ -23,6 +26,9 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      # Secrets can't be read in an `if:`, so expose only whether they exist.
+      HAS_F1_ACCOUNT: ${{ secrets.F1_USERNAME != '' && secrets.F1_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -35,26 +41,51 @@ jobs:
         run: pip install -e ".[app,dev]" scikit-learn xgboost
 
       # Carry only the small per-race parquets between runs (a few MB); the
-      # FastF1 HTTP cache runs to gigabytes. With them restored, a run pulls just
-      # the races it hasn't seen. Without them it still works, only slower —
-      # every builder upserts by year, so a partial cache can't shrink the data.
-      - uses: actions/cache@v4
+      # FastF1 HTTP cache runs to gigabytes. Saved even when the job fails —
+      # `actions/cache` alone saves only on success, so a failing job restarted
+      # from nothing every week and could never make progress.
+      - uses: actions/cache/restore@v4
         with:
           path: data/processed/by_race*
           key: by-race-${{ github.run_id }}
           restore-keys: by-race-
 
-      - name: Pull the current season
+      # Results, sprints and qualifying come from the public results API, so they
+      # never depend on lap timing. Kept as their own step so the half that works
+      # without an account always lands: standings, Race Hub, the podium model
+      # and pre-registration all run on these alone.
+      - name: Pull results and sprints
+        run: |
+          set -e
+          python -m f1se.standalone.results "$(date -u +%Y)"
+          python -m f1se.standalone.results sprints "$(date -u +%Y)"
+
+      # Lap timing lives in F1's live-timing archive, which since October 2026
+      # answers 401 without an F1 TV account. Every weekly run from 12 Oct to
+      # 16 Nov failed right here, and took the results down with it. Without the
+      # secrets this is skipped, and the lap datasets (strategy, degradation,
+      # safety car, pit loss) stay at their last good state — the app says so.
+      - name: Pull lap timing (needs an F1 TV account)
+        if: env.HAS_F1_ACCOUNT == 'true'
+        env:
+          F1_USERNAME: ${{ secrets.F1_USERNAME }}
+          F1_PASSWORD: ${{ secrets.F1_PASSWORD }}
         run: |
           set -e
           YEAR=$(date -u +%Y)
-          python -m f1se.standalone.results "$YEAR"
-          python -m f1se.standalone.results sprints "$YEAR"
-          python -c "import pandas as pd, sys; sys.exit(0 if (pd.read_parquet('data/processed/results.parquet').year == $YEAR).any() else 1)" \
-            || { echo "no $YEAR races yet — nothing to pull"; exit 0; }
           python -m f1se.data.ingest "$YEAR"
           python -m f1se.data.ingest status "$YEAR"
           python -m f1se.data.ingest racelaps "$YEAR"
+
+      - name: Lap timing skipped
+        if: env.HAS_F1_ACCOUNT != 'true'
+        run: echo "::warning::No F1_USERNAME/F1_PASSWORD secrets — lap timing not refreshed; results-driven data still updated."
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: data/processed/by_race*
+          key: by-race-${{ github.run_id }}
 
       - name: Test
         run: pytest -q

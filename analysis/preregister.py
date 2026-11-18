@@ -24,12 +24,15 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from f1se.config import PROJECT_ROOT
 from f1se.standalone.outcome import _upcoming_context, predict_upcoming
 from f1se.standalone.schedule import cached_calendar
+
+#: Race weekend + the Monday refresh, with a day of slack.
+STALE_AFTER = timedelta(days=3)
 
 
 def _slug(name: str) -> str:
@@ -82,6 +85,16 @@ def main() -> int:
     out_dir = Path(PROJECT_ROOT) / "predictions"
     out_dir.mkdir(exist_ok=True)
     fp = out_dir / f"{season}_r{rnd}_{_slug(event)}.json"
+    # Staleness first, before "already locked" can short-circuit it. The round
+    # to predict is one after the last result on file, so if the refresh job
+    # stops pulling, this keeps finding last weekend's call already locked and
+    # reporting success. That is exactly what happened from October to November
+    # 2026: 30 green runs while three races went un-registered. A race more
+    # than three days old means the Monday refresh has had its chance and missed.
+    if race_start and datetime.now(UTC) - datetime.fromisoformat(race_start) > STALE_AFTER:
+        print(f"STALE: round {rnd} ({event}) ran at {race_start} and its result is "
+              "still not on file — the data refresh is not running. Nothing locked.")
+        return 1
     if fp.exists():
         print(f"{fp.name} already locked — leaving it alone")
         return 0

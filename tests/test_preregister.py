@@ -31,8 +31,20 @@ def _run(monkeypatch, tmp_path, *, grid, starts_in_h):
     ("qualifying", 20, 0, 1),   # the real grid, before the race: lock it
     ("form", 20, 0, 0),         # quali not published yet: wait, don't lock
     ("qualifying", -2, 1, 0),   # race already started: stale data, refuse loudly
+    ("qualifying", -24 * 5, 1, 0),  # a week-old round: the refresh has stopped
 ])
 def test_locks_only_off_the_real_grid_and_only_before_the_race(
         monkeypatch, tmp_path, grid, starts_in_h, code, written):
     rc, files = _run(monkeypatch, tmp_path, grid=grid, starts_in_h=starts_in_h)
     assert (rc, len(files)) == (code, written)
+
+
+def test_an_already_locked_call_does_not_hide_a_stalled_refresh(monkeypatch, tmp_path):
+    """Oct-Nov 2026: refresh failed every Monday, so this kept finding Singapore
+    already locked and reported success 30 times while three races went by."""
+    (tmp_path / "predictions").mkdir()
+    (tmp_path / "predictions" / "2026_r99_test_gp.json").write_text("{}")
+    rc, _ = _run(monkeypatch, tmp_path, grid="qualifying", starts_in_h=-24 * 5)
+    assert rc == 1
+    rc, _ = _run(monkeypatch, tmp_path, grid="qualifying", starts_in_h=-6)   # race just ran
+    assert rc == 0
