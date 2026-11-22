@@ -15,7 +15,7 @@ authors = [{ name = "Shive" }]
 # Upper bounds cap at the next major above the known-good version, so a surprise
 # major release can't silently break a fresh install / cloud rebuild.
 dependencies = [
-    "fastf1>=3.4,<4",
+    "fastf1>=3.9,<4",  # 3.9: F1 TV sign-in; the timing archive returns 401 without it
     "pandas>=2.2,<3",
     "pyarrow>=16,<26",
     "numpy>=1.26,<3",
