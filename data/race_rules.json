@@ -1,0 +1,4 @@
+{
+  "_readme": "Race-specific rules the engine cannot infer. Enter only from an official FIA/Pirelli announcement, with its source URL. Read by analysis/preregister.py.",
+  "2026": {}
+}

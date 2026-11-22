@@ -39,6 +39,48 @@ def _slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
 
 
+def _race_rules() -> dict:
+    """Race-specific regulations the engine can't infer, from data/race_rules.json.
+
+    Entered by hand from an official announcement (with its source), never
+    guessed: a stint cap is a rule, and a wrong one would decide the call.
+    """
+    fp = Path(PROJECT_ROOT) / "data" / "race_rules.json"
+    return json.loads(fp.read_text(encoding="utf-8")) if fp.exists() else {}
+
+
+def _strategy_call(season: int, event: str) -> dict | None:
+    """The strategy engine's call for this race, made from committed data only.
+
+    Scored later against the stop count most of the field ran, and the winner's,
+    once the race's lap data is in (score_predictions.py). The commit pins which
+    engine made the call: METHODOLOGY §20 committed to scoring Qatar and Abu
+    Dhabi on the engine as it stood, and this is the receipt.
+    """
+    import subprocess
+
+    from f1se.data.circuits import circuit_key
+    from f1se.engine import StrategyEngine
+
+    try:
+        eng = StrategyEngine.from_processed()
+        track = circuit_key(season, event)
+        if track not in eng.total_laps_by_track:
+            return None
+        rule = _race_rules().get(str(season), {}).get(event, {})
+        cap = rule.get("max_stint_laps")
+        best = eng.recommend(track, season=season, n_runs=3000, max_stint_laps=cap,
+                             max_stops=3 if cap else 2)["best"]
+        commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
+                                text=True, cwd=PROJECT_ROOT).stdout.strip() or None
+    except Exception as e:  # never let the strategy call block the podium lock
+        print(f"  (no strategy call: {e})")
+        return None
+    return {"engine_commit": commit, "max_stint_laps": cap, "rule_source": rule.get("source"),
+            "stops": len(best["pit_laps"]),
+            "compounds": list(best["compounds"]), "pit_laps": list(best["pit_laps"])}
+
+
 def main() -> int:
     payload = predict_upcoming()
     if payload is None:
@@ -79,6 +121,7 @@ def main() -> int:
              "podium_prob": round(p["podium_prob"], 4)}
             for p in payload["predictions"]
         ],
+        "strategy": _strategy_call(season, event),
         "scored": False,
     }
 
@@ -120,6 +163,10 @@ def main() -> int:
     print(f"  race starts {race_start}")
     for p in record["predictions"][:5]:
         print(f"    P{p['grid']:<2} {p['driver']:<4} {p['podium_prob']:.3f}")
+    if record["strategy"]:
+        st = record["strategy"]
+        print(f"  strategy: {st['stops']} stop(s), {'-'.join(st['compounds'])}, "
+              f"pit laps {st['pit_laps']} (engine {st['engine_commit']})")
     return 0
 
 

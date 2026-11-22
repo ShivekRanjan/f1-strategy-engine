@@ -20,6 +20,37 @@ import pandas as pd
 from f1se.config import PROJECT_ROOT
 
 
+def _score_strategy(rec: dict, results: pd.DataFrame, laps: pd.DataFrame | None) -> bool:
+    """Append the strategy outcome once the race's lap data exists. True if it did.
+
+    Lap data arrives separately from results (it is pulled from a home
+    connection, see scripts/refresh_laps.ps1), so this is independent of the
+    podium scoring and may land a run later.
+    """
+    from collections import Counter
+
+    call = rec.get("strategy")
+    if not call or rec.get("strategy_result") or laps is None:
+        return False
+    race = laps[(laps["year"] == rec["season"]) & (laps["round"] == rec["round"])]
+    win = results[(results["year"] == rec["season"]) & (results["round"] == rec["round"])
+                  & (results["position"] == 1)]
+    if race.empty or win.empty:
+        return False
+    stints = race.groupby("driver", observed=True)["stint"].nunique() - 1
+    field = int(Counter(stints).most_common(1)[0][0])
+    winner = str(win["driver"].iloc[0])
+    win_stops = int(stints.get(winner, -1))
+    rec["strategy_result"] = {
+        "field_stops": field, "winner": winner, "winner_stops": win_stops,
+        "matches_field": call["stops"] == field, "matches_winner": call["stops"] == win_stops,
+    }
+    r = rec["strategy_result"]
+    print(f"  strategy: called {call['stops']} stop(s); field {field}, winner {winner} {win_stops}"
+          f" -> field {'OK' if r['matches_field'] else 'miss'}, winner {'OK' if r['matches_winner'] else 'miss'}")
+    return True
+
+
 def main() -> int:
     fp = Path(PROJECT_ROOT) / "data" / "processed" / "results.parquet"
     if not fp.exists():
@@ -33,8 +64,13 @@ def main() -> int:
         print("no pre-registered predictions")
         return 0
 
+    laps_fp = Path(PROJECT_ROOT) / "data" / "processed" / "dry_laps.parquet"
+    laps = pd.read_parquet(laps_fp) if laps_fp.exists() else None
+
     for f in files:
         rec = json.loads(f.read_text(encoding="utf-8"))
+        if _score_strategy(rec, results, laps):
+            f.write_text(json.dumps(rec, indent=2) + "\n", encoding="utf-8")
         if rec.get("scored"):
             print(f"{f.name}: already scored — hit@3 {rec['result']['hit_at_3']}/3")
             continue

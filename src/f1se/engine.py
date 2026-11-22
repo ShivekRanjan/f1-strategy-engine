@@ -204,7 +204,8 @@ class StrategyEngine:
     def _pit_loss(self, track: str) -> float:
         return self.pit_loss_by_track.get(track, self.global_pit_loss)
 
-    def _stint_limits_for(self, track: str, season: int | None) -> dict[str, int]:
+    def _stint_limits_for(self, track: str, season: int | None,
+                          max_stint_laps: int | None = None) -> dict[str, int]:
         """Per-compound stint limits for a sim: global limits, tightened by the
         censoring caps where the current era's field avoided a compound at this
         track. Caps derive from current-era running, so they apply only to
@@ -214,6 +215,12 @@ class StrategyEngine:
             for (t, comp), cap in self.stint_caps.items():
                 if t == track:
                     limits[comp] = min(limits.get(comp, cap), cap)
+        if max_stint_laps is not None:
+            # A mandated cap (Pirelli set 18 laps at Qatar 2023, 25 at Qatar 2025):
+            # a regulation, not an estimate, so it overrides everything above.
+            limits = {c: min(v, max_stint_laps) for c, v in limits.items()}
+            for c in ("SOFT", "MEDIUM", "HARD"):
+                limits.setdefault(c, max_stint_laps)
         return limits
 
     def race_info(self, track: str) -> dict:
@@ -266,6 +273,7 @@ class StrategyEngine:
         sc_scale: float = 1.0,
         use_overtaking: bool = True,
         track_temp: float | None = None,
+        max_stint_laps: int | None = None,
     ) -> dict:
         """Recommend a strategy for ``track`` with a ranked, uncertainty-aware shortlist.
 
@@ -273,6 +281,7 @@ class StrategyEngine:
         2 = double the risk) for sensitivity analysis of the recommendation.
         ``use_overtaking`` charges each pit stop the track-position prior's cost so
         the free-air optimiser doesn't over-stop (on by default).
+        ``max_stint_laps`` enforces a mandated per-set stint cap for this race.
         ``track_temp`` (°C) applies the thermal prior — a cool track degrades less
         (fewer stops), a hot track more; ``None`` leaves degradation unadjusted.
         """
@@ -284,7 +293,7 @@ class StrategyEngine:
             total_laps, pace_fn,
             sc_model=self._sc_model(track, sc_scale), objective=objective,
             n_runs=n_runs, top_k=top_k, seed=seed,
-            max_stops=max_stops, max_stint=self._stint_limits_for(track, season),
+            max_stops=max_stops, max_stint=self._stint_limits_for(track, season, max_stint_laps),
             max_sets=self.set_limits or None,
             pit_loss_s=pit_loss, pit_loss_sc_s=round(pit_loss * 0.5, 1),
             stop_penalty_s=self.overtaking.penalty_per_stop(track) if use_overtaking else 0.0,

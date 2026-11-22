@@ -37,3 +37,11 @@ def test_cliff_from_stints_uses_demonstrated_lengths():
     c = CliffPrior.from_stints(laps, quantile=0.5)
     assert c.cliff_age["SOFT"] == 25.0
     assert CliffPrior.from_stints(laps.head(5)).cliff_age == CliffPrior().cliff_age  # too few stints
+
+
+def test_mandated_stint_cap_overrides_every_limit():
+    from f1se.engine import StrategyEngine
+    eng = StrategyEngine(deg_model=None, total_laps_by_track={}, stint_limits={"SOFT": 29, "HARD": 43})
+    lim = eng._stint_limits_for("Qatar Grand Prix", 2026, max_stint_laps=25)
+    assert lim == {"SOFT": 25, "HARD": 25, "MEDIUM": 25}
+    assert eng._stint_limits_for("Qatar Grand Prix", 2026) == {"SOFT": 29, "HARD": 43}

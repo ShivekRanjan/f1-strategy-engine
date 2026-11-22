@@ -141,6 +141,12 @@ def fit_era_shrunk_degradation(
         ci = group_cols.index("compound")
         if era_delta == "stint_median":
             deltas = _stint_median_deltas(prior_laps, target_laps)
+        elif era_delta == "scaled":
+            # The era's median-stint rate, scaled by how harsh this track was on
+            # the old cars relative to their median track (all compounds pooled).
+            level = _stint_medians(target_laps)
+            sev = _track_severity(prior_laps)
+            deltas = level
         elif era_delta == "replace":
             # No borrowing from the track's old-car history: a track not yet
             # raced in the target era gets the era's median-stint rate outright.
@@ -150,14 +156,19 @@ def fit_era_shrunk_degradation(
             deltas = {c: compound_slope[c] - prior.compound_slope.get(c, prior.global_slope)
                       for c in compound_slope}
         else:
-            raise ValueError("era_delta must be 'pooled', 'stint_median' or 'replace', "
+            raise ValueError("era_delta must be 'pooled', 'stint_median', 'replace' or 'scaled', "
                              f"not {era_delta!r}")
         for key, s in prior.slopes.items():
             if key in n_2026:
                 continue                       # already has a direct 2026 estimate
             comp = key[ci] if isinstance(key, tuple) else None
             if comp in deltas:
-                slopes[key] = deltas[comp] if era_delta == "replace" else s + deltas[comp]
+                if era_delta == "replace":
+                    slopes[key] = deltas[comp]
+                elif era_delta == "scaled":
+                    slopes[key] = deltas[comp] * sev.get(key[group_cols.index("event_name")], 1.0)
+                else:
+                    slopes[key] = s + deltas[comp]
 
     return DegradationModel(
         group_cols=tuple(group_cols),
@@ -200,3 +211,13 @@ def _stint_medians(laps: pd.DataFrame) -> dict[str, float]:
     sl = fit_stint_slopes(laps.assign(race=laps["event_name"]))
     med = sl.groupby("compound", observed=True)["slope_s_per_lap"].median()
     return {str(c): float(v) for c, v in med.items()}
+
+
+def _track_severity(laps: pd.DataFrame) -> dict[str, float]:
+    """Each track's median-stint slope over the era's median track (all compounds)."""
+    from f1se.eda import fit_stint_slopes
+
+    sl = fit_stint_slopes(laps.assign(race=laps["event_name"]))
+    per_track = sl.groupby("race", observed=True)["slope_s_per_lap"].median()
+    ref = float(per_track.median())
+    return {str(t): float(v / ref) for t, v in per_track.items()} if ref > 0 else {}
