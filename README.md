@@ -24,7 +24,7 @@ predictions, standings, race analysis, the calendar, and the news, with a
 | Model | Scored against reality |
 |---|---|
 | Strategy engine (stop count) | **13/16** races match the field's dominant strategy, **11/16** the winner's (leave-one-race-out, 2026) — after a circuit-identity fix and a temperature prior that failed out-of-sample were removed ([§16](docs/METHODOLOGY.md), [§17](docs/METHODOLOGY.md)) |
-| Podium model | ROC-AUC **0.935** forward-tested on 2026 — but the naive grid baseline now **edges it** by one podium slot in 48 (hit@3 1.88 vs 1.81), and the pre-registered Hungary call went **1/3**. All published, [§12](docs/METHODOLOGY.md), [§16](docs/METHODOLOGY.md) |
+| Podium model | ROC-AUC **0.935** forward-tested on 2026 — but the naive grid baseline now **edges it** by one podium slot in 48 (hit@3 1.88 vs 1.81), and across three pre-registered calls (Hungary, Singapore, Las Vegas) the two are level at **5/9**. All published, [§12](docs/METHODOLOGY.md), [§16](docs/METHODOLOGY.md) |
 | Degradation model | **0.054 s/lap** MAE on races the model never saw (leave-one-race-out, 16 races); the 2026-aware model now only **ties** the old-car prior (−0.2%, better in 10 of 16) — it was +1.0% at 11 races ([§7](docs/METHODOLOGY.md), [§16](docs/METHODOLOGY.md)) |
 | LSTM next-lap forecast | **+13.1%** vs persistence averaged over **16 fully unseen 2026 races — winning all 16** (+8.5% on the held-out 2025 split) |
 | Plain-English parser | On phrasings written **before** either parser was scored: the from-scratch transformer wins *intent* 3/3 seeds (0.645–0.677 vs 0.516), the hand-written parser wins *slots* 3/3 (precision **1.000**) — so the **composition of the two ships**, beating both ([§15](docs/METHODOLOGY.md)) |
@@ -111,7 +111,7 @@ Two processes — the API and the frontend. **Backend:**
 ```bash
 py -3.12 -m venv .venv && .venv\Scripts\Activate.ps1   # (or python3.12 -m venv on unix)
 pip install -e ".[app,dev]" scikit-learn   # scikit-learn powers the outcome predictor
-pytest                                     # 263 no-network tests (network ones opt-in via -m network)
+pytest                                     # 265 no-network tests (network ones opt-in via -m network)
 uvicorn f1se.api:app --reload              # REST API + Swagger at localhost:8000/docs
 pip install -e ".[models]"                 # optional: torch etc. to retrain the LSTM (heavy)
 ```

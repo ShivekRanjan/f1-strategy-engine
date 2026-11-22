@@ -172,5 +172,24 @@
       "podium_prob": 0.0068
     }
   ],
-  "scored": false
+  "scored": true,
+  "result": {
+    "actual_podium": [
+      "VER",
+      "NOR",
+      "PIA"
+    ],
+    "hit_at_3": 1,
+    "grid_baseline_podium": [
+      "VER",
+      "RUS",
+      "NOR"
+    ],
+    "grid_baseline_hit_at_3": 2,
+    "called_finished": {
+      "VER": 1,
+      "ANT": 4,
+      "RUS": 9
+    }
+  }
 }
