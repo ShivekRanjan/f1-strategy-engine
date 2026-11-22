@@ -64,7 +64,19 @@ class DegradationModel:
         return tuple({"event_name": track, "compound": compound}[c] for c in self.group_cols)
 
     def slope(self, compound: str, track: str | None = None) -> float:
-        """Resolve the degradation rate (s/lap), most-specific-first."""
+        """The degradation rate (s/lap) to predict with: never below zero.
+
+        A tyre does not get faster as it ages. A fitted rate can still come out
+        negative where a group's laps are dominated by end-of-race dashes on an
+        evolved track, and the 2026 era shift (``models/era.py``) can carry one
+        below zero at tracks not yet raced. With the floor missing, six 2026
+        tracks predicted softs that *gained* pace with age (Melbourne −0.15
+        s/lap), and the optimiser built extra stops around them — METHODOLOGY §19.
+        """
+        return max(self.raw_slope(compound, track), 0.0)
+
+    def raw_slope(self, compound: str, track: str | None = None) -> float:
+        """The fitted rate as estimated, unfloored — for fitting code only."""
         key = self._key(compound, track)
         if key is not None and key in self.slopes:
             return self.slopes[key]

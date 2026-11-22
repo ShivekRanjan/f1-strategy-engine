@@ -41,6 +41,7 @@ def fit_era_shrunk_degradation(
     min_laps: int = 20,
     shrinkage_laps: float | dict[str, float] = 150.0,
     recency_halflife: float | None = None,
+    era_delta: str = "stint_median",
 ) -> DegradationModel:
     """Degradation model for the target era, shrunk toward the pre-era prior.
 
@@ -110,7 +111,7 @@ def fit_era_shrunk_degradation(
         track, compound = kd.get("event_name"), kd.get("compound")
         key = key if isinstance(key, tuple) else (key,)
         n = len(grp)
-        s_prior = prior.slope(compound, track)
+        s_prior = prior.raw_slope(compound, track)
         slopes[key] = _blend(n, s_t, s_prior, compound)
         # Base pace: target mean de-aged at the (shrunk) slope, blended with prior.
         b_t = _wbase(grp, slopes[key])
@@ -138,14 +139,19 @@ def fit_era_shrunk_degradation(
     # keep its stale pre-reset slope and ignore the regime change entirely.
     if "compound" in group_cols:
         ci = group_cols.index("compound")
-        era_delta = {c: compound_slope[c] - prior.compound_slope.get(c, prior.global_slope)
-                     for c in compound_slope}
+        if era_delta == "stint_median":
+            deltas = _stint_median_deltas(prior_laps, target_laps)
+        elif era_delta == "pooled":
+            deltas = {c: compound_slope[c] - prior.compound_slope.get(c, prior.global_slope)
+                      for c in compound_slope}
+        else:
+            raise ValueError(f"era_delta must be 'pooled' or 'stint_median', not {era_delta!r}")
         for key, s in prior.slopes.items():
             if key in n_2026:
                 continue                       # already has a direct 2026 estimate
             comp = key[ci] if isinstance(key, tuple) else None
-            if comp in era_delta:
-                slopes[key] = s + era_delta[comp]
+            if comp in deltas:
+                slopes[key] = s + deltas[comp]
 
     return DegradationModel(
         group_cols=tuple(group_cols),
@@ -160,7 +166,28 @@ def fit_era_shrunk_degradation(
             "target_min_year": target_min_year,
             "shrinkage_laps": shrinkage_laps,
             "recency_halflife": recency_halflife,
+            "era_delta": era_delta,
             "n_target_laps": int(len(target_laps)),
             "n_shrunk_groups": len(n_2026),
         },
     )
+
+
+def _stint_median_deltas(prior_laps: pd.DataFrame, target_laps: pd.DataFrame) -> dict[str, float]:
+    """Per-compound era shift as the change in the *median stint's* slope.
+
+    The pooled fixed-effects slope weights a stint by its age spread, roughly
+    the cube of its length, so it measures long stints. When the field changes
+    how long it runs a compound, the pooled slope moves even if the tyre
+    didn't: 2026 teams ran 3.5 times as many soft laps in 25-lap-plus stints
+    as in 2025, and the pooled soft shift came out at -0.040 s/lap against -0.027
+    for the median stint. Every stint counts once here.
+    """
+    from f1se.eda import fit_stint_slopes
+
+    def med(laps: pd.DataFrame) -> pd.Series:
+        sl = fit_stint_slopes(laps.assign(race=laps["event_name"]))
+        return sl.groupby("compound", observed=True)["slope_s_per_lap"].median()
+
+    before, after = med(prior_laps), med(target_laps)
+    return {str(c): float(after[c] - before[c]) for c in after.index if c in before.index}

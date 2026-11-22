@@ -91,3 +91,15 @@ def test_cross_val_beats_naive_on_held_out_races():
     assert res["n_folds"] == 3
     # Held-out race resolves via compound slope (0.05) -> recovers shape exactly.
     assert res["linear_mae"] < res["naive_mae"]
+
+
+def test_predicted_slope_is_never_negative():
+    """A tyre doesn't gain pace with age; fitting code still sees the raw rate."""
+    from f1se.models.degradation import DegradationModel
+    m = DegradationModel(group_cols=("event_name", "compound"),
+                         slopes={("X", "SOFT"): -0.15}, intercepts={},
+                         compound_slope={"SOFT": -0.02}, global_slope=0.04)
+    assert m.slope("SOFT", "X") == 0.0
+    assert m.raw_slope("SOFT", "X") == -0.15
+    assert m.slope("SOFT", "unseen") == 0.0
+    assert m.slope("HARD", "X") == 0.04

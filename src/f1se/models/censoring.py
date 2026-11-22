@@ -111,7 +111,7 @@ def apply_avoidance_adjustments(
         # (a) slope: trust the raw era estimate when it's worse than the blend.
         if not grp.empty:
             raw = _fe_slope(grp["_age_dm"].to_numpy(float), grp["_corr_dm"].to_numpy(float))
-            if raw is not None and raw > model.slope(comp, track):
+            if raw is not None and raw > model.raw_slope(comp, track):
                 slopes[key] = raw
                 note["slope"] = round(raw, 4)
 
