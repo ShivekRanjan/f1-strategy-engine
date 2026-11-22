@@ -1283,6 +1283,45 @@ on 23 November 2026.
 
 ---
 
+## 21. Tyre management — looked for, not found
+
+§20 ended on the obvious next idea. The engine uses one wear rate per track and
+compound for every stint length. Teams say they manage tyres on long stints, so
+short pushed stints should wear faster and long managed ones should cost pace.
+If that were true, the engine would make short stints, and so extra stops, look
+too cheap. Before modelling it, the data was asked whether the effect exists.
+
+Pooled, it seems to: 2023–25 hards wear 0.07 s/lap in short stints and 0.027 in
+40-lap-plus ones. But stint length isn't random. Low-wear tracks get long
+stints, so the pooled pattern can be the tracks rather than the drivers. Both of
+management's signatures were therefore measured *within* each race:
+
+| Within race | 2026 | 2023–25 |
+|---|---|---|
+| Wear, 12-lap minus 30-lap stint (s/lap): soft | +0.022 [−0.033, +0.098] | +0.013 [−0.009, +0.035] |
+| medium | −0.017 [−0.065, +0.020] | **−0.018 [−0.034, −0.003]** |
+| hard | +0.003 [−0.029, +0.040] | +0.014 [−0.000, +0.030] |
+| Pace cost per +10 laps of planned stint (s/lap) | −0.007 [−0.059, +0.057] | +0.017 [−0.032, +0.038] |
+
+Neither shows up. The one interval that excludes zero, the old-car medium, goes
+the wrong way: short medium stints wear *less*. Short opening stints in traffic
+and safety-car-shortened stints are the likely reasons. At this data's
+resolution, a driver's tyre management within a race is not measurable.
+
+**Not modelled.** A stint-length wear model would have three or four free
+coefficients fitted to noise. It could well have passed the 2023–25 development
+check by luck, which is the exact failure the protocol exists to stop. The
+pooled pattern is already where it belongs, in each track's own wear rate.
+
+What this leaves for the six remaining over-stops is §20's conclusion. The
+largest term is the soft's remaining wear under-prediction (−0.012 s/lap on
+average, larger at some tracks), and a better soft pace estimate only helps once
+that is fixed. The next real evidence is Qatar and Abu Dhabi.
+
+*Reproduce: `analysis/tyre_management_check.py`.*
+
+---
+
 ### The pattern
 
 Six times the sophisticated option (boosted trees, a fitted cliff, a
