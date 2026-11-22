@@ -109,8 +109,12 @@ def estimate_pit_loss(
             before, in_, out_, after = (g.loc[n] for n in need)
             if not bool(out_["is_pit_out_lap"]) or not _green(before) or not _green(after):
                 continue
-            # Skip safety-car stops (in/out lap touched by SC).
-            if SC_CODE in str(in_["track_status"]) or SC_CODE in str(out_["track_status"]):
+            # Skip any stop whose in- or out-lap wasn't fully green. This used to
+            # skip only the full safety car ("4"), so stops under a virtual
+            # safety car ("6"/"7") or yellows were scored as green ones, and
+            # their slow neutralised laps read as pit-lane time: Monza 2026's
+            # VSC stops came out at 45-58 s against ~25 s green (METHODOLOGY §19).
+            if set(str(in_["track_status"])) - {GREEN_FLAG} or                     set(str(out_["track_status"])) - {GREEN_FLAG}:
                 continue
             if any(pd.isna(x["lap_time_s"]) for x in (in_, out_)):
                 continue

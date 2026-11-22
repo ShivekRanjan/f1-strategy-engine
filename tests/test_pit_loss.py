@@ -47,3 +47,10 @@ def test_per_track_medians_differ():
     assert est["Short Pitlane"] < est["Long Pitlane"]
     assert np.isclose(est["Short Pitlane"], 14.0, atol=1e-6)
     assert np.isclose(est["Long Pitlane"], 27.0, atol=1e-6)
+
+
+def test_vsc_and_yellow_stops_are_excluded():
+    # VSC (6/7) and yellow (2) laps are slow for reasons that aren't the pit lane.
+    for status in ("6", "67", "126", "2"):
+        df = _race_laps("VSC GP", pit_lap=10, in_extra=30.0, out_extra=25.0, status_in=status)
+        assert "VSC GP" not in estimate_pit_loss(df), status
