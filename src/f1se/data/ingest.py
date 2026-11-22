@@ -32,7 +32,30 @@ def season_rounds(year: int) -> list[int]:
     import fastf1
 
     sched = fastf1.get_event_schedule(year, include_testing=False)
-    return [int(r) for r in sched["RoundNumber"] if int(r) >= 1]
+    return past_rounds(sched)
+
+
+# A race's timing is published a few hours after the flag; before then a pull
+# fails slowly (a dozen requests per dataset) and only adds noise to the log.
+RACE_PUBLISH_DELAY = pd.Timedelta(hours=4)
+
+
+def past_rounds(sched: pd.DataFrame, now: pd.Timestamp | None = None) -> list[int]:
+    """Rounds of ``sched`` whose race has run and had time to be published.
+
+    The 22 November 2026 refresh tried Qatar and Abu Dhabi, a week and two weeks
+    before they happened. Rounds with no race time are kept: a missing date is
+    not evidence the race hasn't run.
+    """
+    now = pd.Timestamp.now(tz="UTC").tz_localize(None) if now is None else now
+    out = []
+    for rnd, start in zip(sched["RoundNumber"], sched["Session5DateUtc"]):
+        if int(rnd) < 1:
+            continue
+        if pd.notna(start) and pd.Timestamp(start) + RACE_PUBLISH_DELAY > now:
+            continue
+        out.append(int(rnd))
+    return out
 
 
 def combine_cached_races(by_race_dir=None) -> pd.DataFrame:

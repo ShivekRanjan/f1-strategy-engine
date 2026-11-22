@@ -6,8 +6,8 @@
 # The full test suite runs before anything is committed, and every builder
 # refuses to shrink a dataset, so a bad pull fails red instead of landing.
 #
-# Lap timing needs an F1 TV account (repo secrets F1_USERNAME, F1_PASSWORD);
-# without one, only that step is skipped.
+# Lap timing is NOT pulled here: F1 blocks datacenter IPs, GitHub's included,
+# so it is pulled from a home connection with scripts/refresh_laps.ps1.
 name: Refresh race data
 
 on:
@@ -26,9 +26,6 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    env:
-      # Secrets can't be read in an `if:`, so expose only whether they exist.
-      HAS_F1_ACCOUNT: ${{ secrets.F1_USERNAME != '' && secrets.F1_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -60,26 +57,13 @@ jobs:
           python -m f1se.standalone.results "$(date -u +%Y)"
           python -m f1se.standalone.results sprints "$(date -u +%Y)"
 
-      # Lap timing lives in F1's live-timing archive, which since October 2026
-      # answers 401 without an F1 TV account. Every weekly run from 12 Oct to
-      # 16 Nov failed right here, and took the results down with it. Without the
-      # secrets this is skipped, and the lap datasets (strategy, degradation,
-      # safety car, pit loss) stay at their last good state — the app says so.
-      - name: Pull lap timing (needs an F1 TV account)
-        if: env.HAS_F1_ACCOUNT == 'true'
-        env:
-          F1_USERNAME: ${{ secrets.F1_USERNAME }}
-          F1_PASSWORD: ${{ secrets.F1_PASSWORD }}
-        run: |
-          set -e
-          YEAR=$(date -u +%Y)
-          python -m f1se.data.ingest "$YEAR"
-          python -m f1se.data.ingest status "$YEAR"
-          python -m f1se.data.ingest racelaps "$YEAR"
-
-      - name: Lap timing skipped
-        if: env.HAS_F1_ACCOUNT != 'true'
-        run: echo "::warning::No F1_USERNAME/F1_PASSWORD secrets — lap timing not refreshed; results-driven data still updated."
+      # Lap timing (strategy, degradation, safety car, pit loss) is not pulled
+      # here. F1's timing archive needs an F1 TV account since October 2026, and
+      # even with one it answers GitHub-hosted runners with a CloudFront 403
+      # before checking the token: F1 blocks datacenter IPs (FastF1 issue #988,
+      # closed by the maintainer as out of FastF1's hands). Run #7, on 22 Nov,
+      # signed in successfully and then failed all 23 races. It runs from a home
+      # connection instead: scripts/refresh_laps.ps1.
 
       - uses: actions/cache/save@v4
         if: always()
