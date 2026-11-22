@@ -12,7 +12,10 @@ tracks get long stints. So both are measured *within* a race:
 - (1) stint slope on 1/stint length, demeaned within (race, compound), with a
   race bootstrap;
 - (2) per race, lap time on lap + driver + compound + compound x age fixed
-  effects plus stint length, with a bootstrap of the median race.
+  effects plus stint length, with a bootstrap of the median race;
+- (3) management that starts *mid-stint* would flatten the second half of long
+  stints (a cliff would steepen it): second-half minus first-half slope in
+  20+ lap stints, pace measured against the same-lap field median.
 
     .venv\Scripts\python.exe analysis/tyre_management_check.py
 """
@@ -81,9 +84,32 @@ def pace_cost(d: pd.DataFrame) -> None:
               f"[{np.percentile(bs, 2.5):+.3f}, {np.percentile(bs, 97.5):+.3f}]   races {len(v)}")
 
 
+def mid_stint(d: pd.DataFrame) -> None:
+    d = d.dropna(subset=["lap_time_s"]).copy()
+    d["rel"] = d.lap_time_s - d.groupby(["year", "round", "lap_number"]).lap_time_s.transform("median")
+    rows = []
+    for k, g in d.groupby(["year", "round", "driver", "stint"]):
+        g = g.sort_values("tyre_life")
+        if len(g) < 20 or g.rel.abs().max() > 5:
+            continue
+        a, y, h = g.tyre_life.to_numpy(float), g.rel.to_numpy(float), len(g) // 2
+        rows.append({"year": k[0], "comp": g.compound.iloc[0],
+                     "chg": np.polyfit(a[h:], y[h:], 1)[0] - np.polyfit(a[:h], y[:h], 1)[0]})
+    r = pd.DataFrame(rows)
+    r["era"] = np.where(r.year >= 2026, "2026", "2023-25")
+    rng = np.random.default_rng(0)
+    print("(3) second-half minus first-half slope, 20+ lap stints, s/lap (- flattens, + steepens)")
+    for (era, comp), q in r.groupby(["era", "comp"]):
+        v = q.chg.to_numpy()
+        bs = [np.median(rng.choice(v, len(v))) for _ in range(2000)]
+        print(f"  {era:<8}{comp:<7}{np.median(v):+.3f}   95% CI "
+              f"[{np.percentile(bs, 2.5):+.3f}, {np.percentile(bs, 97.5):+.3f}]   stints {len(v)}")
+
+
 if __name__ == "__main__":
     laps = pd.read_parquet(PROJECT_ROOT / "data" / "processed" / "dry_laps.parquet")
     laps = laps.dropna(subset=["tyre_life"])
     laps = laps[laps.compound.isin(COMPS)]
     wear_gradient(laps)
     pace_cost(laps)
+    mid_stint(laps)

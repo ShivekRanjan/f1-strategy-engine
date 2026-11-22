@@ -1308,6 +1308,24 @@ the wrong way: short medium stints wear *less*. Short opening stints in traffic
 and safety-car-shortened stints are the likely reasons. At this data's
 resolution, a driver's tyre management within a race is not measurable.
 
+**Management that starts mid-stint** would escape a test on stint length, but
+not one on shape: it should flatten the second half of a long stint, where a
+cliff would steepen it. In 20-lap-plus stints, against the same-lap field:
+
+| Second-half minus first-half slope (s/lap) | 2026 | 2023–25 |
+|---|---|---|
+| hard | −0.006 [−0.025, +0.008] | **−0.011 [−0.016, −0.005]** |
+| medium | −0.004 [−0.019, +0.010] | +0.001 [−0.008, +0.012] |
+| soft | +0.009 [−0.011, +0.028] | **+0.019 [+0.001, +0.035]** |
+
+Old-car hards flatten slightly, as management (or a tyre settling in) would
+predict. Old-car softs steepen, the direction of the cliff prior (§3). Nothing
+is significant in 2026, and the sizes are small: 0.01 s/lap over a 25-lap
+second half is 1–2 s, against a ~23 s pit stop. Team radio was considered as
+direct evidence and set aside. There are no transcripts, only the few clips per
+race the broadcast chose to air, coded wording, and 2026's routine lift-and-coast
+for energy recovery, which reads the same as tyre saving.
+
 **Not modelled.** A stint-length wear model would have three or four free
 coefficients fitted to noise. It could well have passed the 2023–25 development
 check by luck, which is the exact failure the protocol exists to stop. The
