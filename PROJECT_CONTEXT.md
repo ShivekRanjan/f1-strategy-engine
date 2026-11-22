@@ -202,7 +202,8 @@ and the frontend build on every push.
 
 The 2026 season is handled across the regulation reset (era shrinkage +
 recency weighting) and validated the honest way: a leave-one-race-out season
-backtest — 13 of 16 races match the field's stop count. A temperature prior
+backtest — 14 of 21 races match the field's stop count, and every miss is
+an over-stop, an open 2026-specific bias (METHODOLOGY §18). A temperature prior
 once credited with fixing over-stopping turned out to have no effect on races it
 wasn't tuned on, and was removed (METHODOLOGY §17).
 

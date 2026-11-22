@@ -151,7 +151,7 @@ is dragged by one bad race (round 2, where the prior is much better); shrinkage
 is the better model in **8 of 11** races. So the honest summary is *consistently
 but modestly better*, not the step-change originally advertised.
 
-*Re-measured at 16 races, even that margin is gone: −0.2%, better in 10 of 16 (§16).*
+*Re-measured at 16 races, even that margin is gone: −0.2%, better in 10 of 16 (§16); at 21, −0.9%, better in 13 (§18).*
 
 The regime shift itself is unaffected and remains the real finding: 2026 slopes
 differ sharply from pre-2026 (HARD roughly doubles, +0.034 → +0.059 s/lap), so a
@@ -235,7 +235,7 @@ with a 3.7-point spread is a far better argument than one impressive race,
 because it can't be luck. This is the difference between "the model beat a
 baseline once" and "the model beats the baseline."
 
-*Re-measured at 16 races: +13.1%, winning 16 of 16 (§16).*
+*Re-measured at 16 races: +13.1%, winning 16 of 16 (§16); at 21: +12.5%, 21 of 21 (§18).*
 Two honest readings come with it. First, the *rolling-slope* baseline is **worse
 than persistence**: at a one-lap horizon, fuel-corrected pace is close to a random
 walk, so naively projecting a 5-lap slope just amplifies per-lap noise — a useful
@@ -453,7 +453,7 @@ anything after it.
 | Naive grid baseline | **1.73** |
 
 *At 16 races: reporting 1.81, deployment 1.81, grid 1.88 — still no case for the
-deployment model, and the grid now edges both (§16).*
+deployment model, and the grid now edges both (§16). At 21: 1.81, 1.86, 1.81 — 38, 39 and 38 of 63 slots (§18).*
 
 Pooled ROC-AUC was identical to four decimals (0.9295 vs 0.9294). Per race the
 deployment model was better in **0**, worse in **1**, and identical in **10**.
@@ -1044,6 +1044,60 @@ afterwards in whichever direction the numbers point.
 
 *Reproduce: `analysis/thermal_out_of_sample.py` (stop counts) and
 `analysis/thermal_out_of_sample.py --slopes` (the slope regression).*
+
+---
+
+## 18. Twenty-one races — and every strategy miss points the same way
+
+Lap timing for rounds 17–21 arrived seven weeks late. F1's timing archive began
+requiring an F1 TV account in October, and it refuses GitHub's runners outright
+even with one, because it blocks datacenter IPs. Lap data is now pulled from a
+home connection (`scripts/refresh_laps.ps1`). Results never stopped flowing, so
+the podium model and pre-registration were unaffected.
+
+The four backtests were re-run with the thermal prior off (§17). Leave-one-out
+now predicts each race from twenty others rather than fifteen, so old races can
+move too. The stop counts, LSTM and podium figures for rounds 1–16 are unchanged.
+Shrinkage on those sixteen went from −0.2% to −0.0%, still better in 10.
+
+| | 16 races | **21 races** | rounds 17–21 alone |
+|---|---|---|---|
+| Strategy stop-count vs field | 13/16 | **14/21** | 1/5 |
+| Strategy stop-count vs winner | 11/16 | **12/21** | 1/5 |
+| Degradation MAE, leave-one-out | 0.054 | **0.054** | |
+| Shrinkage vs old-car prior | −0.2%, better in 10 | **−0.9%, better in 13** | interim, below |
+| LSTM vs persistence | +13.1%, 16/16 | **+12.5%, 21/21** | 5/5 |
+| Podium ROC-AUC | 0.935 | **0.936** | |
+| Podium hit@3, model vs grid | 1.81 vs 1.88 | **1.81 vs 1.81** | 9 vs 8 slots |
+
+**Strategy got one of five new races right, and all seven of its 2026 misses
+are the same mistake.** Singapore, Austin, Mexico City and São Paulo all join
+Melbourne, Montreal and Monza: the engine two-stops where the field one-stopped.
+It never under-stops in 2026. These were not hot races (26–43 °C), so this is
+not the thermal story §16 suspected.
+
+The same engine does not have this lean in general. On the 54 independent
+2023–25 races of §17, 15 of its 22 misses are *under*-stops. A bias that runs the
+opposite way in each era is something about 2026, not about the optimiser. The
+leading suspects are that the 2026 model believes in more wear than the 2026
+tyres deliver, or that it prices the stop too cheaply. Neither is fixed here.
+Diagnosing it from these seven races and then scoring on them would be fitting
+the test again. The fix has to be found on data it isn't scored on.
+
+**The other numbers held.** The LSTM still wins every race, and the slightly
+lower mean comes mostly from São Paulo (+2.9%, its weakest race of the season). The
+grid baseline's one-slot edge from §16 is gone: model and grid have both hit 38
+of 63 podium places. The walk-forward deployment model (§12) hit 39, which is
+also noise, so the decision stands.
+
+**Era shrinkage, interim only.** Over rounds 17–21, shrinkage's pace-loss MAE is
+0.581 against the old-car prior's 0.561 (−3.6%): better in three races, worse
+in two, behind on the mean mostly because of Mexico City. The rule written in §17 judges it on
+rounds 17–23, so there is no verdict until Abu Dhabi. These numbers are
+published now so the verdict can't be framed later around whichever subset
+reads best.
+
+*Reproduce: the same four scripts as §16; all derive their races from the data.*
 
 ---
 
