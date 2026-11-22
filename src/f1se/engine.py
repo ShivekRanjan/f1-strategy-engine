@@ -62,6 +62,9 @@ class StrategyEngine:
     # the fitted slope there is unsupported, so don't let the optimiser plan
     # stint lengths no real car has attempted). Applied to current-era sims only.
     stint_caps: dict = field(default_factory=dict)
+    # Tyre-cliff prior per era. ``None`` means the fixed defaults in CliffPrior.
+    cliff: CliffPrior | None = None
+    cliff_2026: CliffPrior | None = None
     stint_caps_min_year: int = 2026
 
     # ---- construction --------------------------------------------------------
@@ -238,9 +241,14 @@ class StrategyEngine:
             return self.deg_model_2026
         return self.deg_model
 
+    def _cliff_for(self, season: int | None) -> CliffPrior:
+        if season is not None and season >= 2026 and self.cliff_2026 is not None:
+            return self.cliff_2026
+        return self.cliff if self.cliff is not None else CliffPrior()
+
     def _pace_fn(self, track: str, total_laps: int, use_cliff: bool, season: int | None = None,
                  deg_slope_delta: float = 0.0):
-        cliff = CliffPrior() if use_cliff else None
+        cliff = self._cliff_for(season) if use_cliff else None
         return pace_fn_from_model(self._model_for(season), track, total_laps, cliff=cliff,
                                   deg_slope_delta=deg_slope_delta)
 
@@ -452,7 +460,7 @@ class StrategyEngine:
         if track not in self.total_laps_by_track:
             raise KeyError(f"unknown track: {track!r}")
         model = self._model_for(season)
-        cliff = CliffPrior() if use_cliff else CliffPrior.disabled()
+        cliff = self._cliff_for(season) if use_cliff else CliffPrior.disabled()
         comps: dict[str, dict] = {}
         for comp in ("SOFT", "MEDIUM", "HARD"):
             max_age = int(self.stint_limits.get(comp, 40))

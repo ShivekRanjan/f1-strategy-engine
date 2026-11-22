@@ -41,7 +41,7 @@ def fit_era_shrunk_degradation(
     min_laps: int = 20,
     shrinkage_laps: float | dict[str, float] = 150.0,
     recency_halflife: float | None = None,
-    era_delta: str = "stint_median",
+    era_delta: str = "replace",
 ) -> DegradationModel:
     """Degradation model for the target era, shrunk toward the pre-era prior.
 
@@ -141,17 +141,23 @@ def fit_era_shrunk_degradation(
         ci = group_cols.index("compound")
         if era_delta == "stint_median":
             deltas = _stint_median_deltas(prior_laps, target_laps)
+        elif era_delta == "replace":
+            # No borrowing from the track's old-car history: a track not yet
+            # raced in the target era gets the era's median-stint rate outright.
+            level = _stint_medians(target_laps)
+            deltas = level
         elif era_delta == "pooled":
             deltas = {c: compound_slope[c] - prior.compound_slope.get(c, prior.global_slope)
                       for c in compound_slope}
         else:
-            raise ValueError(f"era_delta must be 'pooled' or 'stint_median', not {era_delta!r}")
+            raise ValueError("era_delta must be 'pooled', 'stint_median' or 'replace', "
+                             f"not {era_delta!r}")
         for key, s in prior.slopes.items():
             if key in n_2026:
                 continue                       # already has a direct 2026 estimate
             comp = key[ci] if isinstance(key, tuple) else None
             if comp in deltas:
-                slopes[key] = s + deltas[comp]
+                slopes[key] = deltas[comp] if era_delta == "replace" else s + deltas[comp]
 
     return DegradationModel(
         group_cols=tuple(group_cols),
@@ -183,11 +189,14 @@ def _stint_median_deltas(prior_laps: pd.DataFrame, target_laps: pd.DataFrame) ->
     as in 2025, and the pooled soft shift came out at -0.040 s/lap against -0.027
     for the median stint. Every stint counts once here.
     """
+    before, after = _stint_medians(prior_laps), _stint_medians(target_laps)
+    return {c: after[c] - before[c] for c in after if c in before}
+
+
+def _stint_medians(laps: pd.DataFrame) -> dict[str, float]:
+    """Median per-stint degradation slope for each compound."""
     from f1se.eda import fit_stint_slopes
 
-    def med(laps: pd.DataFrame) -> pd.Series:
-        sl = fit_stint_slopes(laps.assign(race=laps["event_name"]))
-        return sl.groupby("compound", observed=True)["slope_s_per_lap"].median()
-
-    before, after = med(prior_laps), med(target_laps)
-    return {str(c): float(after[c] - before[c]) for c in after.index if c in before.index}
+    sl = fit_stint_slopes(laps.assign(race=laps["event_name"]))
+    med = sl.groupby("compound", observed=True)["slope_s_per_lap"].median()
+    return {str(c): float(v) for c, v in med.items()}

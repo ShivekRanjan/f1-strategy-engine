@@ -1197,12 +1197,89 @@ fuel correction assumes it. None of these were changed here.
 several angles before B and D were chosen, so their 2026 improvement is not
 clean evidence. The clean test is the next two races, Qatar and Abu Dhabi,
 scored by this engine as committed on 22 November 2026, with no changes in
-between. The shrinkage probation of §17 is also now judged on the D version of
+between. *(It changed once more on 23 November, under a stricter protocol: §20.)* The shrinkage probation of §17 is also now judged on the D version of
 the blend, which is the model in use from this date.
 
 *Reproduce: `analysis/strategy_bias_diagnosis.py` (the decomposition),
 `analysis/backtest_2026_season.py` (stop counts and wear error),
 `analysis/thermal_out_of_sample.py` (the 2023–25 guard).*
+
+---
+
+## 20. Pushing further — one change kept, two rejected, and a protocol for it
+
+After §19 the 2026 stop counts had been looked at too often to choose anything
+on. So the next round ran under a stricter protocol:
+
+- A change to the engine's **structure** (not specific to the 2026 cars) is
+  developed on the **54 independent 2023–25 races** only. If it helps there, it
+  is scored on 2026 **once**, and that result decides.
+- A **2026-only** change is judged on 2026 wear-prediction error, as in §19.
+- Every data-derived prior is fitted with the predicted race removed. That
+  matters most for anything built from stint lengths, which *are* the strategy.
+
+**Kept: a 2026-only wear rate for a track's first visit.** §19's fallback still
+took a track's *old-car* rate and shifted it. The alternative ignores the
+track's history and uses the 2026 median-stint rate for the compound outright
+(`era_delta="replace"`, now the default). Every held-out race in a backtest goes
+through this path, and so does every track's first race of a season.
+
+| | §19 engine | **2026-only fallback** |
+|---|---|---|
+| Wear-prediction error, 2026 | 0.0480 | **0.0432** |
+| Soft wear bias, 2026 | −0.020 | **−0.012** |
+| Stop-count vs field | 15/21 | **15/21** |
+| Exact tyre set vs winner | 5/21 | **6/21** |
+| Shrinkage vs old-car prior (pace-loss MAE) | −0.7%, better in 14 | **−1.0%, better in 10** |
+
+The two wear measures disagree. The stint-level error (the rule's measure) falls
+10%. The lap-level pace-loss comparison, where long stints dominate and which
+§17's probation uses, gets slightly worse. It is kept on the rule written down
+in advance, and the disagreement is recorded here rather than resolved by
+picking the friendlier number. It also makes the 2026 blend's probation harder
+to pass, not easier.
+
+**Rejected: a cliff derived from stint lengths.** The hand-set cliff starts the
+soft's fall-off at 18 laps, while a quarter of 2026 soft stints ran past 25.
+Onsets taken from the era's own stint lengths were developed on 2023–25:
+
+| Cliff onset | 2023–25 match | over | under |
+|---|---|---|---|
+| **fixed (S 18 / M 28 / H 38)** | **32/54** | 7 | 15 |
+| 75th pct of stint lengths | 32/54 | 9 | 13 |
+| 90th pct | 31/54 | 7 | 16 |
+| median | 30/54 | 15 | 9 |
+| none | 31/54 | 7 | 16 |
+
+Nothing beats the fixed cliff, and a tie doesn't earn a change, so it was never
+scored on 2026. `CliffPrior.from_stints` stays available for a re-test.
+
+**Rejected: compound pace measured car against car.** The per-track fresh-tyre
+gaps between compounds are noisy. Monza 2026 had a new soft 1.45 s/lap faster
+than a medium, Zandvoort 2.07 s/lap slower, while the median race measured about
+−0.18 s. The alternative measures the gap from cars on different compounds on
+the *same lap*, with lap and driver effects, so fuel, track evolution and car
+speed cancel. Raw lap times are used, so no fuel assumption enters. It is then
+pooled per era (`models/compound_pace.py`). On each held-out race's measured gap
+it halved the error (2026: 0.728 → 0.379 s/lap; 2023–25: 1.243 → 0.951). It
+also passed development: **2023–25 stop counts 32/54 → 35/54**.
+
+**Then it failed its one 2026 test: 15/21 → 13/21.** Monza was fixed, but
+Melbourne, Shanghai and Miami broke, and the engine chose soft–medium–soft almost
+everywhere. Giving the soft its true pace advantage at every track, while its
+wear is still under-predicted by 0.012 s/lap, makes soft-heavy two-stops win
+again. One soft error was compensating for another. It is not in the engine.
+Trying combinations until one scored on 2026 is exactly what the protocol rules
+out.
+
+**Where that leaves it.** 15/21 vs field and 13/21 vs winner, with the same six
+over-stops. The next lever is now clear: the soft's remaining wear
+under-prediction. Until that is fixed, a better soft *pace* makes the
+recommendations worse. Qatar and Abu Dhabi are scored on the engine as committed
+on 23 November 2026.
+
+*Reproduce: `analysis/strategy_dev.py current|cliff_q75|pace_lapfe|…` (the
+2023–25 development runs), `analysis/backtest_2026_season.py`.*
 
 ---
 

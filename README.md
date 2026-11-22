@@ -23,9 +23,9 @@ predictions, standings, race analysis, the calendar, and the news, with a
 
 | Model | Scored against reality |
 |---|---|
-| Strategy engine (stop count) | **15/21** races match the field's dominant strategy, **13/21** the winner's (leave-one-race-out, 2026). Every miss over-stops; the main cause, a 2026 soft tyre predicted to barely wear, was diagnosed without scoring fixes on stop counts and partly fixed; six over-stops remain open ([§18](docs/METHODOLOGY.md), [§19](docs/METHODOLOGY.md)) |
+| Strategy engine (stop count) | **15/21** races match the field's dominant strategy, **13/21** the winner's (leave-one-race-out, 2026). Every miss over-stops; the main cause, a 2026 soft tyre predicted to barely wear, was diagnosed without scoring fixes on stop counts and partly fixed; six over-stops remain open ([§18](docs/METHODOLOGY.md)–[§20](docs/METHODOLOGY.md)) |
 | Podium model | ROC-AUC **0.936** forward-tested on 2026, but it only **ties** the naive grid baseline (38 of 63 podium slots each, hit@3 1.81), and across three pre-registered calls (Hungary, Singapore, Las Vegas) the two are level at **5/9**. All published, [§12](docs/METHODOLOGY.md), [§18](docs/METHODOLOGY.md) |
-| Degradation model | **0.048 s/lap** MAE on races the model never saw (leave-one-race-out, 21 races); the 2026-aware model now **trails** the old-car prior slightly (−0.7%, better in 14 of 21), was +1.0% at 11 races, and is on a pre-registered probation decided after Abu Dhabi ([§7](docs/METHODOLOGY.md), [§17](docs/METHODOLOGY.md), [§19](docs/METHODOLOGY.md)) |
+| Degradation model | **0.043 s/lap** MAE on races the model never saw (leave-one-race-out, 21 races); the 2026-aware model now **trails** the old-car prior slightly on lap-level pace loss (−1.0%, better in 10 of 21), was +1.0% at 11 races, and is on a pre-registered probation decided after Abu Dhabi ([§7](docs/METHODOLOGY.md), [§17](docs/METHODOLOGY.md), [§20](docs/METHODOLOGY.md)) |
 | LSTM next-lap forecast | **+13.1%** vs persistence averaged over **16 fully unseen 2026 races — winning all 16** (+8.5% on the held-out 2025 split) |
 | Plain-English parser | On phrasings written **before** either parser was scored: the from-scratch transformer wins *intent* 3/3 seeds (0.645–0.677 vs 0.516), the hand-written parser wins *slots* 3/3 (precision **1.000**) — so the **composition of the two ships**, beating both ([§15](docs/METHODOLOGY.md)) |
 
@@ -111,7 +111,7 @@ Two processes — the API and the frontend. **Backend:**
 ```bash
 py -3.12 -m venv .venv && .venv\Scripts\Activate.ps1   # (or python3.12 -m venv on unix)
 pip install -e ".[app,dev]" scikit-learn   # scikit-learn powers the outcome predictor
-pytest                                     # 267 no-network tests (network ones opt-in via -m network)
+pytest                                     # 270 no-network tests (network ones opt-in via -m network)
 uvicorn f1se.api:app --reload              # REST API + Swagger at localhost:8000/docs
 pip install -e ".[models]"                 # optional: torch etc. to retrain the LSTM (heavy)
 ```

@@ -38,7 +38,6 @@ warnings.filterwarnings("ignore")
 from f1se.config import PROJECT_ROOT  # noqa: E402
 from f1se.engine import StrategyEngine  # noqa: E402
 from f1se.models.censoring import AvoidancePrior, apply_avoidance_adjustments  # noqa: E402
-from f1se.models.cliff import CliffPrior  # noqa: E402
 from f1se.models.degradation import fit_linear_baseline, predict_corrected_laptime  # noqa: E402
 from f1se.models.era import fit_era_shrunk_degradation  # noqa: E402
 from f1se.sim.simulate import stint_plan  # noqa: E402
@@ -65,7 +64,7 @@ def terms(eng: StrategyEngine, track: str, season: int, plan: dict) -> dict:
     model = eng._model_for(season)
     total = eng._total_laps(track)
     strat = Strategy(tuple(plan["compounds"]), tuple(plan["pit_laps"]))
-    cliff = CliffPrior()
+    cliff = eng._cliff_for(season)
     base = wear = cl = 0.0
     for comp, age, _ in stint_plan(strat, total):
         base += predict_corrected_laptime(model, comp, 0, track=track)

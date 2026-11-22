@@ -52,6 +52,23 @@ class CliffPrior:
         """A no-op prior (no cliff) — recovers the pure data-fitted model."""
         return cls(cliff_age={}, rate=0.0)
 
+    @classmethod
+    def from_stints(cls, laps, quantile: float = 0.75, **kwargs) -> CliffPrior:
+        """Onsets where the field has demonstrably raced without one.
+
+        Each compound's onset is the ``quantile`` of its stint lengths in
+        ``laps``: that share of stints ended sooner, and the rest ran past it,
+        so no cliff can sit much before it. The fixed defaults (soft 18 laps)
+        predate 2026, where a quarter of soft stints ran past 25. Pass only the
+        laps the model may see: stint lengths are the strategy itself, so the
+        race being predicted must not be among them.
+        """
+        keys = ["year", "round", "driver", "stint"]
+        st = laps.groupby(keys, observed=True).agg(c=("compound", "first"), n=("tyre_life", "max"))
+        ages = {str(c): float(g["n"].quantile(quantile))
+                for c, g in st.groupby("c", observed=True) if len(g) >= 20}
+        return cls(cliff_age=ages or _default_cliff_ages(), **kwargs)
+
     def extra_loss(self, compound: str, tyre_age: float) -> float:
         """Extra pace loss (s) from the cliff at this compound/age (>= 0)."""
         onset = self.cliff_age.get(compound, float("inf"))
