@@ -1404,6 +1404,61 @@ back to the era rate, as before.
 
 ---
 
+## 23. The stop count, pushed directly — and why it won't move
+
+With wear no longer the bottleneck (§22), two direct attempts on the stop count
+itself:
+
+**The same-lap compound pace of §20, re-tested.** §20 predicted it would help
+once soft wear was fixed, and soft wear has since been fixed twice. Re-tested
+once on that stated reason: **14/21, unchanged.** It fixes Monza and Zandvoort
+and breaks Shanghai and Miami. The prediction was wrong; not adopted.
+
+**A per-stop cost learned from the season so far.** The field one-stopped in
+16 of 21 races, and the engine's two-stop calls often won by only 8–14 s on
+paper. So perhaps the margin a team needs before taking an extra stop is a
+property of the season. Before each round, an extra per-stop cost (−10 to
++30 s) was chosen to best match that season's *earlier* rounds, so every call
+was made before its race (`analysis/stop_penalty_walkforward.py`):
+
+| | fixed penalty | learned from the season so far |
+|---|---|---|
+| 2023–25 (development) | **37/65** | 34/65 |
+| 2026 | 13/20 | 13/20 |
+
+It fails on development, and the learned value swings from −5 to +20 s within a
+season. There is no stable preference to learn. Rejected.
+
+**Why neither works.** Accuracy by the engine's own margin between its best
+one-stop and two-stop:
+
+| Margin | 2026 correct | 2023–25 correct |
+|---|---|---|
+| under 10 s | **9/10** | 14/24 |
+| 10–20 s | 4/9 | 17/30 |
+| over 20 s | 0/1 | 6/11 |
+
+The engine's confidence carries no information about whether it is right. Its
+close 2026 calls are nearly all correct; its clear ones mostly are not. The
+misses are not near-ties tipping the wrong way, which tuning could fix. They are
+a few races where the engine is confidently wrong, always toward the extra stop.
+That is the signature of something the engine does not model at all rather than
+a mis-set dial, and the dials it has have now been tested from every side the
+data allows. Candidates worth testing on new data, not these races:
+
+- tyre allocation: the plans assume a fresh set at every stop, while teams race
+  on whatever qualifying left them;
+- per-race rules such as Qatar's stint caps (`data/race_rules.json`);
+- what the timing data cannot show: team-specific wear, and the risk a leader
+  avoids by not stopping again.
+
+The headline stays 14/21. The test that can move it is the races still to come.
+
+*Reproduce: `analysis/strategy_bias_diagnosis.py --years 2023,2024,2025` then
+`--years 2026` (margins), `analysis/stop_penalty_walkforward.py`.*
+
+---
+
 ### The pattern
 
 Six times the sophisticated option (boosted trees, a fitted cliff, a
