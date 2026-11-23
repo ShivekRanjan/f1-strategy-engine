@@ -65,6 +65,10 @@ class StrategyEngine:
     # Tyre-cliff prior per era. ``None`` means the fixed defaults in CliffPrior.
     cliff: CliffPrior | None = None
     cliff_2026: CliffPrior | None = None
+    # Laps a set already has when a later stint starts, per (compound, repeat)
+    # and era; None plans every stint on a new set (the original behaviour).
+    start_age: dict | None = None
+    start_age_2026: dict | None = None
     stint_caps_min_year: int = 2026
 
     # ---- construction --------------------------------------------------------
@@ -262,6 +266,11 @@ class StrategyEngine:
             return self.cliff_2026
         return self.cliff if self.cliff is not None else CliffPrior()
 
+    def _start_age_for(self, season: int | None) -> dict | None:
+        if season is not None and season >= 2026 and self.start_age_2026 is not None:
+            return self.start_age_2026
+        return self.start_age
+
     def _pace_fn(self, track: str, total_laps: int, use_cliff: bool, season: int | None = None,
                  deg_slope_delta: float = 0.0):
         cliff = self._cliff_for(season) if use_cliff else None
@@ -306,6 +315,7 @@ class StrategyEngine:
             max_sets=self.set_limits or None,
             pit_loss_s=pit_loss, pit_loss_sc_s=round(pit_loss * 0.5, 1),
             stop_penalty_s=self.overtaking.penalty_per_stop(track) if use_overtaking else 0.0,
+            start_age=self._start_age_for(season),
         )
         return {
             **self.race_info(track),

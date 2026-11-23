@@ -90,16 +90,26 @@ class SimResult:
         }
 
 
-def stint_plan(strategy: Strategy, total_laps: int) -> list[tuple[str, int, bool]]:
-    """Per-lap ``(compound, tyre_age, is_pit_lap)`` for laps 1..total_laps."""
+def stint_plan(strategy: Strategy, total_laps: int,
+               start_age: dict | None = None) -> list[tuple[str, float, bool]]:
+    """Per-lap ``(compound, tyre_age, is_pit_lap)`` for laps 1..total_laps.
+
+    ``start_age`` maps ``(compound, is_repeat)`` to the laps a set typically
+    already has when a stint after a stop begins: teams race on what qualifying
+    left them, and a driver's second stint on a compound is the likeliest to be
+    on a used set. Missing keys (and the opening stint) start at zero.
+    """
     bounds = [0, *strategy.pit_laps, total_laps]
     if strategy.pit_laps and strategy.pit_laps[-1] >= total_laps:
         raise ValueError("a pit lap is beyond the race distance")
-    plan: list[tuple[str, int, bool]] = []
+    plan: list[tuple[str, float, bool]] = []
     pit_set = set(strategy.pit_laps)
+    seen: set[str] = set()
     for k, comp in enumerate(strategy.compounds):
+        extra = (start_age or {}).get((comp, comp in seen), 0.0) if k > 0 else 0.0
+        seen.add(comp)
         for lap in range(bounds[k] + 1, bounds[k + 1] + 1):
-            plan.append((comp, lap - bounds[k], lap in pit_set))
+            plan.append((comp, lap - bounds[k] + extra, lap in pit_set))
     return plan
 
 
@@ -128,9 +138,10 @@ def draw_scenarios(
     return sc_mask, noise
 
 
-def green_and_pit(strategy: Strategy, total_laps: int, pace_fn: PaceFn) -> tuple[np.ndarray, np.ndarray]:
+def green_and_pit(strategy: Strategy, total_laps: int, pace_fn: PaceFn,
+                  start_age: dict | None = None) -> tuple[np.ndarray, np.ndarray]:
     """Deterministic per-lap green lap times and the pit-lap mask for a strategy."""
-    plan = stint_plan(strategy, total_laps)
+    plan = stint_plan(strategy, total_laps, start_age)
     green_det = np.array([pace_fn(c, age, i + 1) for i, (c, age, _) in enumerate(plan)])
     pit_mask = np.array([is_pit for _, _, is_pit in plan], dtype=bool)
     return green_det, pit_mask

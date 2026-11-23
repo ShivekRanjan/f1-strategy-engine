@@ -252,3 +252,26 @@ def fuel_sensitivity(
         for compound, slope in med.items():
             out.append({"sec_per_kg": beta, "compound": compound, "median_slope": slope})
     return pd.DataFrame(out)
+
+
+def used_set_ages(clean: pd.DataFrame) -> dict[tuple[str, bool], float]:
+    """Laps a set already carries when a stint after a stop begins, beyond a new set.
+
+    Keyed by ``(compound, is_repeat)``: whether the driver already ran that
+    compound earlier in the race. Measured against new sets fitted after a
+    stop, so the out-lap the cleaning removes cancels. In 2026 a soft after a
+    stop started 1.7 laps older than a new one, a repeat soft 2.5; hards
+    effectively new. Never negative.
+    """
+    st = (clean.sort_values("lap_number")
+          .groupby(list(STINT_KEYS), observed=True)
+          .agg(comp=("compound", "first"), age0=("tyre_life", "first"), new=("fresh_tyre", "first"))
+          .reset_index().sort_values(list(STINT_KEYS)))
+    st["repeat"] = st.groupby(["year", "round", "driver", "comp"], observed=True).cumcount() > 0
+    later = st[st["stint"] > 1].dropna(subset=["age0"])
+    ref = later[later["new"] == True].groupby("comp", observed=True)["age0"].mean()  # noqa: E712
+    out = {}
+    for (comp, rep), g in later.groupby(["comp", "repeat"], observed=True):
+        if comp in ref.index and len(g) >= 20:
+            out[(str(comp), bool(rep))] = max(float(g["age0"].mean() - ref[comp]), 0.0)
+    return out

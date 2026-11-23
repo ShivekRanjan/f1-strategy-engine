@@ -1479,3 +1479,24 @@ sample size that turned out to be a data bug in costume. Each was a defensible
 reading of the evidence available at the time. The discipline isn't that the
 first answer is right; it's that the answer keeps getting re-derived when new
 evidence arrives, and the wrong ones stay on the page.
+
+---
+
+## 24. The baseline that should have come first
+
+The project's rule is to beat a dumb baseline before anything else, and the
+stop count never had one. **Calling one stop every time scores 16/21 on 2026**
+(16/20 on the 20 races with a breakdown; Monaco has no feasible one-stop), against the engine's
+14/21. On 2023–25 the engine does beat it, 41/65 against 37/65. A classifier
+learned from the simulator's own breakdown terms, leave-one-out over all 75
+races, reached 16–17/20 on 2026 and 35–40/65 on 2023–25 across six variants:
+no better than the baseline once the choice among variants is counted. The
+backtest now prints the baseline beside the score.
+
+Also tested this round, and kept off: used-set starting ages (measured: a soft
+after a stop starts 1.7 laps old, a repeat soft 2.5). They changed no 2026 call
+and cost 2023–25 three races. Kept: the Qatar stint caps of 2023 (18 laps) and
+2025 (25) in `data/race_rules.json`, which lift 2023–25 from 32/54 to 34/54.
+Pit loss is the same in both eras (22.6 s median), and misses are no more
+common in safety-car races, so neither explains the 2026 over-stops.
+

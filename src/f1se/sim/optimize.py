@@ -129,6 +129,7 @@ def recommend_strategy(
     stop_penalty_s: float = 0.0,
     screen_runs: int = 300,
     screen_keep: int = 64,
+    start_age: dict | None = None,
     **enum_kwargs,
 ) -> OptimizationResult:
     """Search the strategy space and return the best plan with uncertainty.
@@ -164,7 +165,7 @@ def recommend_strategy(
                                         pace_noise_s=pace_noise_s, seed=draw_seed)
         out = np.empty((len(cands), runs), dtype=float)
         for i, strat in enumerate(cands):
-            green_det, pit_mask = green_and_pit(strat, total_laps, pace_fn)
+            green_det, pit_mask = green_and_pit(strat, total_laps, pace_fn, start_age)
             out[i] = race_totals(green_det, pit_mask, sc_mask, noise, pit_loss_s=pit_loss_s,
                                  pit_loss_sc_s=pit_loss_sc_s, sc_lap_factor=sc_lap_factor)
         return out

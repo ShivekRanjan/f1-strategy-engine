@@ -11,7 +11,7 @@ year,round,race,field,engine
 2023,14,Italian Grand Prix,1,1
 2023,15,Singapore Grand Prix,1,1
 2023,16,Japanese Grand Prix,2,1
-2023,17,Qatar Grand Prix,3,1
+2023,17,Qatar Grand Prix,3,3
 2023,18,United States Grand Prix,2,1
 2023,19,Mexico City Grand Prix,2,1
 2023,21,Las Vegas Grand Prix,1,1
@@ -51,5 +51,5 @@ year,round,race,field,engine
 2025,20,Mexico City Grand Prix,1,1
 2025,21,São Paulo Grand Prix,2,1
 2025,22,Las Vegas Grand Prix,1,1
-2025,23,Qatar Grand Prix,2,1
+2025,23,Qatar Grand Prix,2,2
 2025,24,Abu Dhabi Grand Prix,1,1

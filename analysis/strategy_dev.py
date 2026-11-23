@@ -50,6 +50,10 @@ def variant_engine(name: str, eng: StrategyEngine, seen: pd.DataFrame, year: int
         if year >= 2026:
             return replace(eng, deg_model_2026=with_compound_offsets(eng.deg_model_2026, off))
         return replace(eng, deg_model=with_compound_offsets(eng.deg_model, off))
+    if name == "used_sets":
+        from f1se.eda import used_set_ages
+        ages = used_set_ages(era)
+        return replace(eng, start_age=ages, start_age_2026=ages)
     if name == "no_cliff":
         return replace(eng, cliff=CliffPrior.disabled(), cliff_2026=CliffPrior.disabled())
     if name.startswith("cliff_q"):
@@ -85,7 +89,10 @@ def main() -> None:
                 continue
         seen = dry[~((dry.year == year) & (dry["round"] == rnd))]
         eng = variant_engine(a.variant, loo_engine(base, dry, year, rnd), seen, year, offsets)
-        rec = eng.recommend(track, season=year, n_runs=2000)["best"]
+        from f1se.data.race_rules import max_stint_laps
+        cap = max_stint_laps(year, str(race["event_name"].iloc[0]))
+        rec = eng.recommend(track, season=year, n_runs=2000, max_stint_laps=cap,
+                            max_stops=3 if cap else 2)["best"]
         field = int(Counter(race.groupby("driver", observed=True)["stint"].nunique() - 1)
                     .most_common(1)[0][0])
         rows.append({"year": year, "round": rnd, "race": track, "field": field,

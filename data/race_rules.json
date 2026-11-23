@@ -1,4 +1,10 @@
 {
-  "_readme": "Race-specific rules the engine cannot infer. Enter only from an official FIA/Pirelli announcement, with its source URL. Read by analysis/preregister.py.",
+  "_readme": "Race-specific rules the engine cannot infer. Enter only from an official FIA/Pirelli announcement, with its source URL. Read by analysis/preregister.py and the backtests.",
+  "2023": {
+    "Qatar Grand Prix": {"max_stint_laps": 18, "source": "https://www.formula1.com/en/latest/article/explained-what-does-the-maximum-tyre-stint-length-rule-mean-for-the-qatar.4q8iXkNgE3sLnIIASPV1sm"}
+  },
+  "2025": {
+    "Qatar Grand Prix": {"max_stint_laps": 25, "source": "https://www.autosport.com/f1/news/pirelli-mandates-25-lap-stints-for-qatar-gp-over-tyre-concerns/10777404/"}
+  },
   "2026": {}
 }

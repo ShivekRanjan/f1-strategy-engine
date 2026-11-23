@@ -68,7 +68,7 @@ def main() -> None:
     print(hdr)
     print("-" * len(hdr))
 
-    stops_hit = tyre_hit = field_hit = deg_maes = 0
+    stops_hit = tyre_hit = field_hit = deg_maes = one_stop_hit = 0
     n = 0
     for rnd in rounds:
         race = r26[r26["round"] == rnd]
@@ -117,6 +117,7 @@ def main() -> None:
         stops_hit += stops_match
         tyre_hit += tyre_match
         field_hit += field_match
+        one_stop_hit += field_mode == 1   # the dumb baseline: always call one stop
         deg_maes += deg_mae
         n += 1
 
@@ -128,6 +129,7 @@ def main() -> None:
     print(f"\nAggregate over {n} races  (eng/win/fld = engine/winner/field-dominant stop count):")
     print(f"  stop-count vs winner        : {stops_hit}/{n} ({100*stops_hit/n:.0f}%)")
     print(f"  stop-count vs field-dominant : {field_hit}/{n} ({100*field_hit/n:.0f}%)")
+    print(f"  baseline 'always one stop'   : {one_stop_hit}/{n} ({100*one_stop_hit/n:.0f}%)  <- the bar to beat")
     print(f"  exact tyre set vs winner     : {tyre_hit}/{n} ({100*tyre_hit/n:.0f}%)")
     print(f"  degradation MAE (leave-one-out): {deg_maes/n:.4f} s/lap")
 
