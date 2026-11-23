@@ -1340,6 +1340,70 @@ that is fixed. The next real evidence is Qatar and Abu Dhabi.
 
 ---
 
+## 22. Practice long runs — reading a track's wear before its race
+
+The engine's blind spot is a track's first race of a season. With no laps of its
+own in the era, its wear is borrowed: since §20, the era's median-stint rate for
+the compound. Old-car history was tried as a better guide and failed (wear
+error 0.0451 against 0.0432). How hard a track is on tyres barely carries over
+the rule change (r = 0.25 across 19 tracks). Teams don't borrow; they measure
+it in practice, and practice comes before the race, so it is fair evidence.
+
+`analysis/practice_longruns.py` pulls the practice a strategist would use (FP2,
+or FP1 on a sprint weekend) and keeps long runs of 6+ clean laps. Laps beyond
+1.5% of the run's median are dropped and the slope is Theil–Sen, correcting only
+for fuel burned within the run (0.03 s/kg × 1.69 kg/lap, the race model's own
+figures). That cleaning was chosen looking at 2026: it raised the
+practice-to-race correlation from 0.24 to 0.41.
+
+Practice reads high, since teams push harder than in a race, so it needs an
+offset and a weight against the fallback:
+
+    slope = (n × (practice − offset) + k × fallback) / (n + k)
+
+**Both were fitted on 2023–25 only**: an offset of +0.048 s/lap, and k = 150 from
+a grid, the same value the era blend already uses. Then 2026 was scored once,
+with each race's median stint slope as the yardstick:
+
+| Wear-prediction error | 2023–25 (fitted) | **2026 (scored once)** |
+|---|---|---|
+| fallback only | 0.0500 | 0.0432 |
+| practice-informed | 0.0460 | **0.0389** |
+
+**Adopted** (`models/practice.py`): a track with no race laps yet this season
+blends in that weekend's practice when it has been pulled. The backtest gives
+each held-out race its own practice, as the engine would have had live.
+
+| 2026, 21 races | §20 engine | **with practice** |
+|---|---|---|
+| Wear-prediction error (backtest) | 0.0432 | **0.0387** |
+| Stop-count vs field | 15/21 | **14/21** |
+| Stop-count vs winner | 13/21 | 12/21 |
+| Exact tyre set vs winner | 6/21 | 6/21 |
+
+The stop count drops by one. Zandvoort becomes the season's first *under*-stop
+(one stop where the field ran two), and the six over-stops of §19 remain. The
+rule written in §20 judges a 2026-only change on wear, because these stop
+counts have been examined too often to decide on, so it is kept and the drop is
+published beside it.
+
+**What the run of fixes now says.** Since §18, wear error has fallen 28%
+(0.0543 → 0.0387), and the stop count has gone 14 → 15 → 14. Better wear no
+longer moves the decisions. The decomposition (§19, §20) points at what does:
+the per-track fresh-tyre pace gaps between compounds, and the hand-set cliff.
+The one attempt at the first (§20, same-lap pace) failed on 2026. That is where
+the next real gain is, and it should be developed on 2023–25 and judged on
+Qatar and Abu Dhabi, not on these races again.
+
+For live use, practice has to be pulled from a home connection after Friday's
+session (`scripts/refresh_laps.ps1` now does it). Without it, a new track falls
+back to the era rate, as before.
+
+*Reproduce: `analysis/practice_longruns.py 2023 2024 2025 2026`,
+`analysis/practice_wear_test.py`, `analysis/backtest_2026_season.py`.*
+
+---
+
 ### The pattern
 
 Six times the sophisticated option (boosted trees, a fitted cliff, a

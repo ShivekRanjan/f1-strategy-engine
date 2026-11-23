@@ -55,6 +55,9 @@ def main() -> None:
     dry = pd.read_parquet(PROC / "dry_laps.parquet")
     results = pd.read_parquet(PROC / "results.parquet")
     base = StrategyEngine.from_processed()
+    from f1se.models.practice import with_practice
+    pfp = PROC / "practice_longruns.parquet"
+    practice = pd.read_parquet(pfp) if pfp.exists() else pd.DataFrame(columns=["year", "round"])
 
     r26 = dry[dry["year"] == 2026]
     rounds = sorted(r26["round"].unique())
@@ -90,6 +93,8 @@ def main() -> None:
             dry_loo, target_min_year=2026, recency_halflife=4.0)
         era_loo = dry_loo[dry_loo["year"] >= 2026]
         loo = apply_avoidance_adjustments(loo, era_loo, prior_model=base.deg_model)
+        # That weekend's practice came before the race, so it is fair evidence (§22).
+        loo = with_practice(loo, practice[(practice.year == 2026) & (practice["round"] == rnd)], track)
         eng = replace(base, deg_model_2026=loo,
                       stint_caps=AvoidancePrior().track_caps(era_loo))
         temp = track_temp(2026, int(rnd))

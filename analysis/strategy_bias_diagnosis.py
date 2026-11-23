@@ -54,6 +54,12 @@ def loo_engine(base: StrategyEngine, dry: pd.DataFrame, year: int, rnd: int) -> 
         loo = fit_era_shrunk_degradation(dry_loo, target_min_year=2026, recency_halflife=4.0)
         era = dry_loo[dry_loo["year"] >= 2026]
         loo = apply_avoidance_adjustments(loo, era, prior_model=base.deg_model)
+        pfp = PROC / "practice_longruns.parquet"
+        if pfp.exists():
+            from f1se.models.practice import with_practice
+            pr = pd.read_parquet(pfp)
+            track = str(dry.loc[(dry.year == year) & (dry["round"] == rnd), "event_name"].iloc[0])
+            loo = with_practice(loo, pr[(pr.year == year) & (pr["round"] == rnd)], track)
         return replace(base, deg_model_2026=loo, stint_caps=AvoidancePrior().track_caps(era))
     return replace(base, deg_model=fit_linear_baseline(dry_loo[dry_loo.year < 2026]))
 

@@ -27,13 +27,17 @@ if ($LASTEXITCODE) { throw "lap ingest failed" }
 if ($LASTEXITCODE) { throw "track-status ingest failed" }
 & $py -m f1se.data.ingest racelaps $year
 if ($LASTEXITCODE) { throw "race-laps ingest failed" }
+# Practice long runs: the engine's wear evidence for a track before its race
+# (METHODOLOGY section 22). Run this script again after Friday practice to use them.
+& $py analysis/practice_longruns.py $year
+if ($LASTEXITCODE) { throw "practice pull failed" }
 & $py -m f1se.standalone.results $year
 if ($LASTEXITCODE) { throw "results pull failed" }
 
 & $py -m pytest -q
 if ($LASTEXITCODE) { throw "tests failed; nothing committed" }
 
-git add data/processed/*.parquet
+git add data/processed/*.parquet predictions/
 git diff --cached --quiet
 if (-not $LASTEXITCODE) { Write-Host "no new data"; exit 0 }
 git commit -m "Data: lap timing refresh $(Get-Date -Format yyyy-MM-dd)"

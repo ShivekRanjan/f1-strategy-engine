@@ -22,6 +22,7 @@ data/processed/by_race/
 data/processed/by_race_status/
 data/processed/by_race_pitlaps/
 data/processed/by_race_sprints/
+data/processed/by_race_practice/
 *.parquet
 !tests/fixtures/*.parquet
 # ...but DO ship the small concatenated datasets the app needs to run (~1.3 MB),
@@ -33,6 +34,7 @@ data/processed/by_race_sprints/
 !data/processed/sprint_points.parquet
 !data/processed/driver_info.parquet
 !data/processed/track_layouts.parquet
+!data/processed/practice_longruns.parquet
 
 # Notebooks
 .ipynb_checkpoints/

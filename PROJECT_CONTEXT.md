@@ -190,21 +190,21 @@ f1-strategy-engine/
 ├── data/processed/        # small committed datasets (app + CI run offline)
 ├── analysis/              # EDA + phase scripts + 2026 backtests
 ├── docs/METHODOLOGY.md    # the receipts — every accepted/rejected model
-└── tests/                 # 271 no-network tests; network ones opt-in
+└── tests/                 # 274 no-network tests; network ones opt-in
 ```
 
 ## Where things stand
 
 **v2.0.0 is tagged, released, and live** (August 2026): the validated engine
 (degradation + priors + LSTM + Monte-Carlo optimiser), the FastAPI service, and
-a 13-view React app — 271 no-network tests green, CI runs both the Python suite
+a 13-view React app — 274 no-network tests green, CI runs both the Python suite
 and the frontend build on every push.
 
 The 2026 season is handled across the regulation reset (era shrinkage +
 recency weighting) and validated the honest way: a leave-one-race-out season
-backtest — 15 of 21 races match the field's stop count. Every miss is an
-over-stop; its main cause (a 2026 soft predicted to barely wear) was found and partly
-fixed in METHODOLOGY §19–20; six over-stops remain open. A temperature prior
+backtest — 14 of 21 races match the field's stop count. Wear prediction
+improved 28% across METHODOLOGY §19–22 (including practice long runs) without
+moving that number; the remaining misses come from compound pace and the cliff. A temperature prior
 once credited with fixing over-stopping turned out to have no effect on races it
 wasn't tuned on, and was removed (METHODOLOGY §17).
 

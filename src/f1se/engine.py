@@ -160,6 +160,15 @@ class StrategyEngine:
             deg_model_2026 = apply_avoidance_adjustments(
                 deg_model_2026, era_laps, prior_model=deg_model)
 
+        # A track not raced yet this season borrows its wear rate; if that
+        # weekend's practice long runs have been pulled, blend them in (§22).
+        practice_fp = data_dir / "practice_longruns.parquet"
+        if deg_model_2026 is not None and practice_fp.exists():
+            from f1se.models.practice import apply_for_unraced
+            season = int(dry["year"].max())
+            deg_model_2026 = apply_for_unraced(deg_model_2026, pd.read_parquet(practice_fp),
+                                               dry[dry["year"] >= 2026], season)
+
         return cls(
             deg_model=deg_model,
             deg_model_2026=deg_model_2026,
